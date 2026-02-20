@@ -1631,10 +1631,10 @@ function conectarGmail() {
 }
 
 function iniciarOAuth() {
-  var cid = document.getElementById('cfgClientId') ? document.getElementById('cfgClientId').value : EMAIL.cfg.clientId;
+  var cid = document.getElementById('cfgClientId') ? document.getElementById('cfgClientId').value : 245855517843-4fstpfsna79doa6krmvg3hu5p3o7jtdm.apps.googleusercontent.com;
   if (!cid) { toast('Insira o Client ID primeiro','orange'); return; }
   var scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar');
-  var redir = encodeURIComponent('http://localhost/lexoffice/callback');
+ var redir = encodeURIComponent('https://amilcaradvocacia.github.io/meu-app-lexoffice/');
   var url = 'https://accounts.google.com/o/oauth2/v2/auth?client_id='+cid+'&redirect_uri='+redir+'&response_type=code&scope='+scope+'&access_type=offline';
   window.open(url,'_blank');
   var s=document.getElementById('oauthSt'); if(s) s.textContent='Aguardando autorização...';
