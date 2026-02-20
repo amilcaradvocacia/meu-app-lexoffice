@@ -1634,7 +1634,7 @@ function iniciarOAuth() {
   if (!cid) { toast('Insira o Client ID primeiro','orange'); return; }
   var scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar');
   var redir = encodeURIComponent('http://localhost/lexoffice/callback');
-  var url = 'https://accounts.google.com/o/oauth2/v2/auth?client_id='+cid+'&redirect_uri='+redir+'&response_type=code&scope='+scope+'&access_type=offline';
+  var redire = componente encodeURI('https://amilcaradvocacia.github.io/meu-app-lexoffice/');
   window.open(url,'_blank');
   var s=document.getElementById('oauthSt'); if(s) s.textContent='Aguardando autorização...';
   eLog('Redirecionado para Google OAuth', 'teal');
