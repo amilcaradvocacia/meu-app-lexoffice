@@ -707,6 +707,7 @@ Vara: 2ª Vara Cível - Ponta Grossa/PR"></textarea>
     </div>
   </div>
 </div>
+
 </main>
 </div>
 
@@ -1574,7 +1575,6 @@ function enviarChat() {
   carregarInbox();
 })();
 
-
 // =====================================================================
 // EMAIL / GMAIL INTEGRATION MODULE
 // =====================================================================
@@ -1634,7 +1634,7 @@ function iniciarOAuth() {
   if (!cid) { toast('Insira o Client ID primeiro','orange'); return; }
   var scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar');
   var redir = encodeURIComponent('http://localhost/lexoffice/callback');
-  var redire = componente encodeURI('https://amilcaradvocacia.github.io/meu-app-lexoffice/');
+  var url = 'https://accounts.google.com/o/oauth2/v2/auth?client_id='+cid+'&redirect_uri='+redir+'&response_type=code&scope='+scope+'&access_type=offline';
   window.open(url,'_blank');
   var s=document.getElementById('oauthSt'); if(s) s.textContent='Aguardando autorização...';
   eLog('Redirecionado para Google OAuth', 'teal');
