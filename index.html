@@ -213,9 +213,11 @@ var el=document.getElementById(id); if(el) el.value='';
 function renderKPIClientes() {
 var el = document.getElementById('clientesKPI');
 if (!el) return;
-var total = S.clientes.length;
-var ativos = S.clientes.filter(function(c){return c.status==='ativo'||c.status==='vip';}).length;
-var vip = S.clientes.filter(function(c){return c.status==='vip';}).length;
+var src = CLIENTS_LOADED && CLIENTS_DATA.length ? CLIENTS_DATA : S.clientes;
+var total = CLIENTS_LOADED ? CLIENTS_DATA.length : S.clientes.length;
+var ativos = total;
+var vip = 0;
+var _dummy = S.clientes.filter(function(c){return c.status==='vip';}).length;
 var areas = (function(){var a={};S.clientes.forEach(function(c){a[c.area]=1;});return Object.keys(a).length;})();
 el.innerHTML = [
 {ico:'👤',val:total,lbl:'Total Clientes',cor:'gold'},
@@ -233,46 +235,37 @@ var kd = document.getElementById('kClientes');
 if (kd) kd.textContent = ativos;
 }
 function filtrarClientes() {
-var q = (document.getElementById('searchClientes')||{value:''}).value.toLowerCase();
-var area = (document.getElementById('filtroArea')||{value:''}).value;
-S.cFiltrados = S.clientes.filter(function(c){
-var m = !q || c.nome.toLowerCase().indexOf(q)!==-1 || (c.exadverso||'').toLowerCase().indexOf(q)!==-1 || (c.cpfcnpj||'').indexOf(q)!==-1;
-var ma = !area || c.area===area;
-return m && ma;
-});
-S.cPag = 0;
-renderClientes();
+var q=(document.getElementById('searchClientes')?document.getElementById('searchClientes').value:'').toLowerCase().trim();
+var src=CLIENTS_LOADED?CLIENTS_DATA:S.clientes.map(function(c){return [c.nome,'',c.polo||'AUTOR',c.exadv||'',c.area||'','',c.cidade||'',1];});
+if(!q){S.cliFiltrados=src.slice();}
+else{S.cliFiltrados=src.filter(function(c){return (c[0]||'').toLowerCase().includes(q)||(c[3]||'').toLowerCase().includes(q)||(c[4]||'').toLowerCase().includes(q)||(c[6]||'').toLowerCase().includes(q);});}
+S.cliPag=0;
+renderClientesTable();
+var el=document.getElementById('cliCount');
+if(el)el.textContent=S.cliFiltrados.length+' clientes';
 }
+
 function renderClientes() {
-var tbody = document.getElementById('clientesBody');
-if (!tbody) return;
-if (!S.cFiltrados.length && S.clientes.length) S.cFiltrados = [].concat(S.clientes);
-var pSz=30, pag=S.cPag;
-var slice = S.cFiltrados.slice(pag*pSz,(pag+1)*pSz);
-var sb={ativo:'bg',vip:'bgold',analise:'bo',inativo:'br'};
-var sl={ativo:'Ativo',vip:'VIP',analise:'Em Análise',inativo:'Inativo'};
-tbody.innerHTML = slice.map(function(c){
-var u = S.usuarios.find(function(x){return x.id===c.resp;});
-var tipo = c.tipo==='PJ'?'<span class="badge bb">PJ</span>':c.tipo==='ORG'?'<span class="badge bp">Órgão</span>':'<span class="badge bgold" style="font-size:9px">PF</span>';
-return '<tr onclick="abrirEditarCliente('+c.id+')">'
-+'<td class="tpl"><div style="font-size:13px;color:var(--text);font-weight:500">'+c.nome+'</div>'
-+(c.cpfcnpj?'<div style="font-size:10px;color:var(--text3)">'+c.cpfcnpj+'</div>':'')+'</td>'
-+'<td>'+tipo+'</td>'
-+'<td><span class="badge bb" style="font-size:10px">'+c.area+'</span></td>'
-+'<td style="font-size:12px;color:var(--text2)">'+( c.exadverso||'—')+'</td>'
-+'<td><span class="badge '+sb[c.status]+'">'+sl[c.status]+'</span></td>'
-+'<td class="tpr" style="font-size:12px">'+(u?u.nome:'—')+'</td>'
+if(CLIENTS_LOADED && CLIENTS_DATA.length>0) { renderClientesTable(); return; }
+var tbody=document.getElementById('clientesBody');
+if(!tbody)return;
+var src=S.cFiltrados.length?S.cFiltrados:S.clientes;
+if(!src.length){tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3)">Carregando clientes...</td></tr>';return;}
+var pSz=30,pag=S.cPag;
+var slice=src.slice(pag*pSz,(pag+1)*pSz);
+tbody.innerHTML=slice.map(function(c){
+return '<tr style="cursor:pointer" onclick="openModal('mCliente')">'
++'<td class="tpl"><div style="font-size:13px;font-weight:500">'+c.nome+'</div><div style="font-size:11px;color:var(--text3)">'+c.cpf+'</div></td>'
++'<td><span class="badge bteal" style="font-size:10px">'+(c.polo||'AUTOR')+'</span></td>'
++'<td style="font-size:12px;color:var(--text2)">'+(c.exAdv||c.exadv||'')+'</td>'
++'<td style="font-size:12px;color:var(--text2)">'+(c.area||'')+'</td>'
++'<td></td>'
++'<td style="font-size:11px;color:var(--text3)">'+(c.endereco||'')+'</td>'
++'<td class="tpr"></td>'
 +'</tr>';
 }).join('');
-var pagEl = document.getElementById('clientesPag');
-if (pagEl) {
-var tot = S.cFiltrados.length;
-var maxP = Math.ceil(tot/pSz)||1;
-pagEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="mudaPagC(-1)">‹ Ant.</button>'
-+'<span>Pág '+(pag+1)+'/'+maxP+' · '+tot+' clientes</span>'
-+'<button class="btn btn-ghost btn-sm" onclick="mudaPagC(1)">Próx ›</button>';
 }
-}
+
 function mudaPagC(d) {
 var tot = S.cFiltrados.length||S.clientes.length;
 var max = Math.ceil(tot/30)-1;
@@ -470,7 +463,7 @@ var advAdv=(document.getElementById('f_adv_adv')||{}).value||'';
 var status=(document.getElementById('f_status')||{}).value||'ativo';
 if(!ficha){toast('Informe a ficha/processo','orange');return;}
 var proc={ficha,acao,auto,vara,comarca,parte1,polo,exadv,cpfCli,qualCli,tipoAdv,cpfAdv,qualAdv,advAdv,status,updated:new Date().toLocaleDateString('pt-BR')};
-localStorage.setItem('lex_proc_'+ficha,JSON.stringify(proc));
+try{localStorage.setItem('lex_proc_'+ficha,JSON.stringify(proc));var verify=localStorage.getItem('lex_proc_'+ficha);if(!verify)throw new Error('write failed');}catch(e){console.warn('localStorage save failed:',e);}
 if(XLS2_LOADED){
 var i=XLS2_DATA.findIndex(function(r){return r[0]===ficha;});
 if(i>=0){XLS2_DATA[i][1]=acao;XLS2_DATA[i][2]=auto;XLS2_DATA[i][3]=vara;XLS2_DATA[i][4]=comarca;XLS2_DATA[i][7]=parte1;XLS2_DATA[i][8]=polo;XLS2_DATA[i][9]=exadv;}
@@ -944,7 +937,7 @@ pag.innerHTML='<span style="font-size:12px;color:var(--text3)">'+total+' cliente
 }
 }
 function filtrarClientes() {
-var q=(document.getElementById('searchCli')?document.getElementById('searchCli').value:'').toLowerCase().trim();
+var q=(document.getElementById('searchClientes')?document.getElementById('searchClientes').value:'').toLowerCase().trim();
 var src=CLIENTS_LOADED?CLIENTS_DATA:[];
 if(!q){S.cliFiltrados=src.slice();}
 else{S.cliFiltrados=src.filter(function(c){
