@@ -15,7 +15,7 @@ Vara: 2ª Vara Cível - Ponta Grossa/PR"></textarea></div><div style="display:fl
 const XLS=[];
 </script>
 
-<script>var DB={_mem:{},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}try{sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||'null');}catch(e){}if(!v)try{v=JSON.parse(sessionStorage.getItem(k)||'null');}catch(e){}if(v)this._mem[k]=v;return v;}};
+<script>var DB={_mem:{},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||"null");}catch(e){}if(v)this._mem[k]=v;return v;}};
 var S = {
 usuarios: [
 {id:1,nome:'Dr. Carlos Lima',perfil:'advogado',oab:'OAB/PR 22.111',cor:'#c9a84c',email:'carlos@escritorio.com',tel:'(42)3033-0001',ativo:true},
@@ -48,11 +48,10 @@ document.querySelectorAll('.nitem').forEach(function(n){n.classList.remove('acti
 var pg=document.getElementById('pg-'+page);
 if(pg)pg.classList.add('active');
 if(el)el.classList.add('active');
-if(page==='processos'&&!XLS2_LOADED)carregarXLS2();
-if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var el2=document.getElementById('cliCount');if(el2)el2.textContent=CLIENTS_DATA.length+' clientes';}}
+if(page==='processos')carregarXLS2();
+if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var c2=document.getElementById('cliCount');if(c2)c2.textContent=CLIENTS_DATA.length+' clientes';}}
 if(page==='emails')carregarInbox();
 }
-
 function openModal(id) {
 var el = document.getElementById(id);
 if (el) el.classList.add('open');
@@ -208,26 +207,69 @@ var el=document.getElementById(id); if(el) el.value='';
 });
 }
 function renderKPIClientes() {
-var el=document.getElementById('clientesKPI');if(!el)return;
-var total=CLIENTS_LOADED?CLIENTS_DATA.length:S.clientes.length;
-var ativos=total;
-
+var el = document.getElementById('clientesKPI');
+if (!el) return;
+var total=CLIENTS_LOADED&&CLIENTS_DATA.length?CLIENTS_DATA.length:S.clientes.length;
+var ativos = S.clientes.filter(function(c){return c.status==='ativo'||c.status==='vip';}).length;
+var vip = S.clientes.filter(function(c){return c.status==='vip';}).length;
+var areas = (function(){var a={};S.clientes.forEach(function(c){a[c.area]=1;});return Object.keys(a).length;})();
+el.innerHTML = [
+{ico:'👤',val:total,lbl:'Total Clientes',cor:'gold'},
+{ico:'✅',val:ativos,lbl:'Ativos',cor:'green'},
+{ico:'⭐',val:vip,lbl:'VIP',cor:'purple'},
+{ico:'⚖️',val:areas,lbl:'Áreas Jurídicas',cor:'blue'}
+].map(function(k){
+return '<div class="kcard '+k.cor+'" style="padding:14px"><div class="kico">'+k.ico+'</div>'
++'<div class="kval" style="font-size:24px">'+k.val+'</div>'
++'<div class="klbl">'+k.lbl+'</div></div>';
+}).join('');
+var nb = document.getElementById('nbClientes');
+if (nb) nb.textContent = total;
+var kd = document.getElementById('kClientes');
+if (kd) kd.textContent = ativos;
+}
 function filtrarClientes() {
 var q=(document.getElementById('searchClientes')||{value:''}).value.toLowerCase().trim();
-var src=CLIENTS_LOADED?CLIENTS_DATA:[];
-S.cliFiltrados=q?src.filter(function(c){return(c[0]||'').toLowerCase().includes(q)||(c[3]||'').toLowerCase().includes(q)||(c[4]||'').toLowerCase().includes(q);}):src.slice();
+if(CLIENTS_LOADED&&CLIENTS_DATA.length>0){
+S.cliFiltrados=q?CLIENTS_DATA.filter(function(c){return(c[0]||'').toLowerCase().includes(q)||(c[3]||'').toLowerCase().includes(q);}):CLIENTS_DATA.slice();
 S.cliPag=0;renderClientesTable();
-var el=document.getElementById('cliCount');if(el)el.textContent=S.cliFiltrados.length+' clientes';
+var elc=document.getElementById('cliCount');if(elc)elc.textContent=S.cliFiltrados.length+' clientes';
+return;
 }
-
+S.cFiltrados=q?S.clientes.filter(function(c){return(c.nome||'').toLowerCase().includes(q);}):S.clientes.slice();
+S.cPag=0;renderClientes();
+}
 function renderClientes() {
 if(CLIENTS_LOADED&&CLIENTS_DATA.length>0){renderClientesTable();return;}
-var tbody=document.getElementById('clientesBody');
-if(!tbody)return;
-var src=S.cFiltrados.length?S.cFiltrados:S.clientes;
-tbody.innerHTML='<tr><td colspan="7" style="text-align:center;padding:20px;color:var(--text3)">Clique em <strong>Clientes</strong> na barra lateral para carregar os dados.</td></tr>';
+var tbody = document.getElementById('clientesBody');
+if (!tbody) return;
+if (!S.cFiltrados.length && S.clientes.length) S.cFiltrados = [].concat(S.clientes);
+var pSz=30, pag=S.cPag;
+var slice = S.cFiltrados.slice(pag*pSz,(pag+1)*pSz);
+var sb={ativo:'bg',vip:'bgold',analise:'bo',inativo:'br'};
+var sl={ativo:'Ativo',vip:'VIP',analise:'Em Análise',inativo:'Inativo'};
+tbody.innerHTML = slice.map(function(c){
+var u = S.usuarios.find(function(x){return x.id===c.resp;});
+var tipo = c.tipo==='PJ'?'<span class="badge bb">PJ</span>':c.tipo==='ORG'?'<span class="badge bp">Órgão</span>':'<span class="badge bgold" style="font-size:9px">PF</span>';
+return '<tr onclick="abrirEditarCliente('+c.id+')">'
++'<td class="tpl"><div style="font-size:13px;color:var(--text);font-weight:500">'+c.nome+'</div>'
++(c.cpfcnpj?'<div style="font-size:10px;color:var(--text3)">'+c.cpfcnpj+'</div>':'')+'</td>'
++'<td>'+tipo+'</td>'
++'<td><span class="badge bb" style="font-size:10px">'+c.area+'</span></td>'
++'<td style="font-size:12px;color:var(--text2)">'+( c.exadverso||'—')+'</td>'
++'<td><span class="badge '+sb[c.status]+'">'+sl[c.status]+'</span></td>'
++'<td class="tpr" style="font-size:12px">'+(u?u.nome:'—')+'</td>'
++'</tr>';
+}).join('');
+var pagEl = document.getElementById('clientesPag');
+if (pagEl) {
+var tot = S.cFiltrados.length;
+var maxP = Math.ceil(tot/pSz)||1;
+pagEl.innerHTML = '<button class="btn btn-ghost btn-sm" onclick="mudaPagC(-1)">‹ Ant.</button>'
++'<span>Pág '+(pag+1)+'/'+maxP+' · '+tot+' clientes</span>'
++'<button class="btn btn-ghost btn-sm" onclick="mudaPagC(1)">Próx ›</button>';
 }
-
+}
 function mudaPagC(d) {
 var tot = S.cFiltrados.length||S.clientes.length;
 var max = Math.ceil(tot/30)-1;
@@ -409,14 +451,12 @@ toast('✅ Ficha '+ficha+' carregada — parte e ex-adverso preenchidos','teal')
 }
 function salvarProcesso() {
 var g=function(id){return(document.getElementById(id)||{}).value||'';};
-var ficha=g('f_proc');
-if(!ficha){toast('Informe a ficha/processo','orange');return;}
+var ficha=g('f_proc');if(!ficha){toast('Informe a ficha','orange');return;}
 var proc={ficha:ficha,acao:g('f_acao'),auto:g('f_auto'),vara:g('f_vara'),comarca:g('f_comarca'),parte1:g('f_parte1'),polo:g('f_polo')||'AUTOR',exadv:g('f_exadv'),cpfCli:g('f_cpf_cli'),qualCli:g('f_qual_cli'),tipoAdv:g('f_tipo_adv')||'PF',cpfAdv:g('f_cpf_adv'),qualAdv:g('f_qual_adv'),advAdv:g('f_adv_adv'),status:g('f_status')||'ativo',updated:new Date().toLocaleDateString('pt-BR')};
 DB.save('lex_proc_'+ficha,proc);
-if(XLS2_LOADED){var i=XLS2_DATA.findIndex(function(r){return r[0]===ficha;});if(i>=0){XLS2_DATA[i][1]=proc.acao;XLS2_DATA[i][2]=proc.auto;XLS2_DATA[i][3]=proc.vara;XLS2_DATA[i][4]=proc.comarca;XLS2_DATA[i][7]=proc.parte1;XLS2_DATA[i][8]=proc.polo;XLS2_DATA[i][9]=proc.exadv;}else{XLS2_DATA.unshift([ficha,proc.acao,proc.auto,proc.vara,proc.comarca,proc.parte1,proc.exadv,proc.parte1,proc.polo,proc.exadv]);}S.procFiltrados=XLS2_DATA.slice();renderProcTable();}
+if(XLS2_LOADED){var i=XLS2_DATA.findIndex(function(r){return r[0]===ficha;});if(i>=0){XLS2_DATA[i][1]=proc.acao;XLS2_DATA[i][2]=proc.auto;XLS2_DATA[i][7]=proc.parte1;XLS2_DATA[i][8]=proc.polo;XLS2_DATA[i][9]=proc.exadv;}S.procFiltrados=XLS2_DATA.slice();renderProcTable();}
 salvarAnotacao();closeModal('mProcesso');toast('✅ Processo '+ficha+' salvo!','green');
 }
-
 function aiCampos() {
 var el=document.getElementById('f_obs');
 if(el) el.value='Ação distribuída via sistema eletrônico. Partes qualificadas nos autos. Requer análise de mérito e estratégia processual. [Conecte Gemini/Claude para preenchimento real.]';
@@ -657,19 +697,18 @@ if(typeof r==='string'){try{r=JSON.parse(r);}catch(e){return;}}
 openModal('mProcesso');
 setTimeout(function(){
 switchTab('dados');
-var ficha=r[0]||'';
-var sv=DB.load('lex_proc_'+ficha);
-var g=function(id,sk,fb){setVal(id,sv?(sv[sk]||fb||''):(fb||''));};
-setVal('f_proc',ficha);g('f_acao','acao',r[1]);g('f_auto','auto',r[2]);g('f_vara','vara',r[3]);g('f_comarca','comarca',r[4]);g('f_parte1','parte1',r[7]);g('f_exadv','exadv',r[9]);g('f_cpf_cli','cpfCli','');g('f_qual_cli','qualCli','');g('f_cpf_adv','cpfAdv','');g('f_qual_adv','qualAdv','');g('f_adv_adv','advAdv','');
-var poloEl=document.getElementById('f_polo');if(poloEl)poloEl.value=sv?(sv.polo||r[8]||'AUTOR'):(r[8]||'AUTOR');
+var ficha=r[0]||'';var sv=DB.load('lex_proc_'+ficha);
+var g=function(id,sk,fb){setVal(id,sv&&sv[sk]?sv[sk]:(fb||''));};
+setVal('f_proc',ficha);g('f_acao','acao',r[1]);g('f_auto','auto',r[2]);g('f_vara','vara',r[3]);g('f_comarca','comarca',r[4]);g('f_parte1','parte1',r[7]);g('f_exadv','exadv',r[9]);
+g('f_cpf_cli','cpfCli','');g('f_qual_cli','qualCli','');g('f_cpf_adv','cpfAdv','');g('f_qual_adv','qualAdv','');g('f_adv_adv','advAdv','');
+var poloEl=document.getElementById('f_polo');if(poloEl)poloEl.value=sv&&sv.polo?sv.polo:(r[8]||'AUTOR');
 var tipoEl=document.getElementById('f_tipo_adv');if(tipoEl&&sv)tipoEl.value=sv.tipoAdv||'PF';
 var statusEl=document.getElementById('f_status');if(statusEl&&sv)statusEl.value=sv.status||'ativo';
 var b=document.getElementById('autoFillBanner');
-if(b){var polo=sv?(sv.polo||r[8]||'AUTOR'):(r[8]||'AUTOR');var adv=sv?(sv.exadv||r[9]||''):(r[9]||'');var cli=sv?(sv.parte1||r[7]||''):(r[7]||'');b.style.display='flex';b.innerHTML=(sv?'💾 ':'✨ ')+'Ficha <strong>'+ficha+'</strong> — <strong>'+cli+'</strong> · Polo: <strong>'+polo+'</strong> · Adverso: <strong>'+adv+'</strong>'+(sv?' <span style="color:var(--teal);font-size:11px">[salvo]</span>':'');}
+if(b){var adv=sv&&sv.exadv?sv.exadv:(r[9]||'');var cli=sv&&sv.parte1?sv.parte1:(r[7]||'');var polo=sv&&sv.polo?sv.polo:(r[8]||'AUTOR');b.style.display='flex';b.innerHTML=(sv?'💾 ':'✨ ')+'Ficha <strong>'+ficha+'</strong> — <strong>'+cli+'</strong> · Polo: <strong>'+polo+'</strong> · Adverso: <strong>'+adv+'</strong>'+(sv?' <span style="color:var(--teal);font-size:11px">[salvo]</span>':'');}
 carregarAnotacao();
 },150);
 }
-
 function setVal(id, val) {
 var el = document.getElementById(id);
 if (el) el.value = val;
@@ -857,13 +896,15 @@ pag.innerHTML='<span style="font-size:12px;color:var(--text3)">'+total+' cliente
 }
 }
 function filtrarClientes() {
-var q=(document.getElementById('searchClientes')||{value:''}).value.toLowerCase().trim();
+var q=(document.getElementById('searchCli')?document.getElementById('searchCli').value:'').toLowerCase().trim();
 var src=CLIENTS_LOADED?CLIENTS_DATA:[];
-S.cliFiltrados=q?src.filter(function(c){return(c[0]||'').toLowerCase().includes(q)||(c[3]||'').toLowerCase().includes(q)||(c[4]||'').toLowerCase().includes(q);}):src.slice();
-S.cliPag=0;renderClientesTable();
-var el=document.getElementById('cliCount');if(el)el.textContent=S.cliFiltrados.length+' clientes';
+if(!q){S.cliFiltrados=src.slice();}
+else{S.cliFiltrados=src.filter(function(c){
+return (c[0]||'').toLowerCase().includes(q)||(c[3]||'').toLowerCase().includes(q)||(c[4]||'').toLowerCase().includes(q)||(c[6]||'').toLowerCase().includes(q);
+});}
+S.cliPag=0;
+renderClientesTable();
 }
-
 function mudaPagC(dir){
 var PER=30;
 var pages=Math.ceil((S.cliFiltrados||[]).length/PER);
