@@ -453,8 +453,33 @@ toast('✅ Ficha '+ficha+' carregada — parte e ex-adverso preenchidos','teal')
 },250);
 }
 function salvarProcesso() {
+var ficha=(document.getElementById('f_proc')||{}).value||'';
+var acao=(document.getElementById('f_acao')||{}).value||'';
+var auto=(document.getElementById('f_auto')||{}).value||'';
+var vara=(document.getElementById('f_vara')||{}).value||'';
+var comarca=(document.getElementById('f_comarca')||{}).value||'';
+var parte1=(document.getElementById('f_parte1')||{}).value||'';
+var polo=(document.getElementById('f_polo')||{}).value||'AUTOR';
+var exadv=(document.getElementById('f_exadv')||{}).value||'';
+var cpfCli=(document.getElementById('f_cpf_cli')||{}).value||'';
+var qualCli=(document.getElementById('f_qual_cli')||{}).value||'';
+var tipoAdv=(document.getElementById('f_tipo_adv')||{}).value||'PF';
+var cpfAdv=(document.getElementById('f_cpf_adv')||{}).value||'';
+var qualAdv=(document.getElementById('f_qual_adv')||{}).value||'';
+var advAdv=(document.getElementById('f_adv_adv')||{}).value||'';
+var status=(document.getElementById('f_status')||{}).value||'ativo';
+if(!ficha){toast('Informe a ficha/processo','orange');return;}
+var proc={ficha,acao,auto,vara,comarca,parte1,polo,exadv,cpfCli,qualCli,tipoAdv,cpfAdv,qualAdv,advAdv,status,updated:new Date().toLocaleDateString('pt-BR')};
+localStorage.setItem('lex_proc_'+ficha,JSON.stringify(proc));
+if(XLS2_LOADED){
+var i=XLS2_DATA.findIndex(function(r){return r[0]===ficha;});
+if(i>=0){XLS2_DATA[i][1]=acao;XLS2_DATA[i][2]=auto;XLS2_DATA[i][3]=vara;XLS2_DATA[i][4]=comarca;XLS2_DATA[i][7]=parte1;XLS2_DATA[i][8]=polo;XLS2_DATA[i][9]=exadv;}
+else{XLS2_DATA.unshift([ficha,acao,auto,vara,comarca,parte1,exadv,parte1,polo,exadv]);}
+S.procFiltrados=XLS2_DATA.slice();renderProcTable();
+}
+salvarAnotacao();
 closeModal('mProcesso');
-toast('✅ Processo salvo com sucesso!','green');
+toast('✅ Processo '+ficha+' salvo!','green');
 }
 function aiCampos() {
 var el=document.getElementById('f_obs');
@@ -695,27 +720,43 @@ pag.innerHTML = '<span style="font-size:12px;color:var(--text3)">' + total + ' p
 }
 }
 function abrirProcessoXLS2(r) {
-if (typeof r === 'string') { try { r = JSON.parse(r); } catch(e) { return; } }
+if(typeof r==='string'){try{r=JSON.parse(r);}catch(e){return;}}
 openModal('mProcesso');
+setTimeout(function(){
 switchTab('dados');
-setTimeout(function() {
-setVal('f_proc', r[0]||'');
-setVal('f_acao', r[1]||'');
-setVal('f_auto', r[2]||'');
-setVal('f_vara', r[3]||'');
-setVal('f_comarca', r[4]||'');
-setVal('f_parte1', r[7]||'');
-setVal('f_exadv', r[9]||'');
-var poloEl = document.getElementById('f_polo');
-if (poloEl) poloEl.value = r[8]||'AUTOR';
-var b = document.getElementById('autoFillBanner');
-if (b) {
-b.style.display = 'flex';
-b.innerHTML = '✨ Ficha <strong>' + (r[0]||'') + '</strong> carregada — Cliente: <strong>' + (r[7]||'') + '</strong> · Polo: <strong>' + (r[8]||'AUTOR') + '</strong> · Adverso: <strong>' + (r[9]||'') + '</strong>';
+var ficha=r[0]||'';
+var saved=null;
+try{saved=JSON.parse(localStorage.getItem('lex_proc_'+ficha)||'null');}catch(e){}
+setVal('f_proc',ficha);
+setVal('f_acao',saved?saved.acao||r[1]||'':r[1]||'');
+setVal('f_auto',saved?saved.auto||r[2]||'':r[2]||'');
+setVal('f_vara',saved?saved.vara||r[3]||'':r[3]||'');
+setVal('f_comarca',saved?saved.comarca||r[4]||'':r[4]||'');
+setVal('f_parte1',saved?saved.parte1||r[7]||'':r[7]||'');
+setVal('f_exadv',saved?saved.exadv||r[9]||'':r[9]||'');
+setVal('f_cpf_cli',saved?saved.cpfCli||'':'');
+setVal('f_qual_cli',saved?saved.qualCli||'':'');
+setVal('f_cpf_adv',saved?saved.cpfAdv||'':'');
+setVal('f_qual_adv',saved?saved.qualAdv||'':'');
+setVal('f_adv_adv',saved?saved.advAdv||'':'');
+var poloEl=document.getElementById('f_polo');
+if(poloEl)poloEl.value=saved?(saved.polo||r[8]||'AUTOR'):(r[8]||'AUTOR');
+var tipoEl=document.getElementById('f_tipo_adv');
+if(tipoEl&&saved)tipoEl.value=saved.tipoAdv||'PF';
+var statusEl=document.getElementById('f_status');
+if(statusEl&&saved)statusEl.value=saved.status||'ativo';
+var b=document.getElementById('autoFillBanner');
+if(b){
+var polo=saved?(saved.polo||r[8]||'AUTOR'):(r[8]||'AUTOR');
+var adverso=saved?(saved.exadv||r[9]||''):(r[9]||'');
+var cli=saved?(saved.parte1||r[7]||''):(r[7]||'');
+b.style.display='flex';
+b.innerHTML=(saved?'💾 ':'✨ ')+'Ficha <strong>'+ficha+'</strong> — Cliente: <strong>'+cli+'</strong> · Polo: <strong>'+polo+'</strong> · Adverso: <strong>'+adverso+'</strong>'+(saved?' <span style="color:var(--teal);font-size:11px">(dados salvos)</span>':'');
 }
 carregarAnotacao();
-}, 200);
+},150);
 }
+
 function setVal(id, val) {
 var el = document.getElementById(id);
 if (el) el.value = val;
