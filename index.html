@@ -1004,19 +1004,11 @@ var ec = document.getElementById('prazosAutoCnt');
 if (ec) ec.textContent = EMAIL.prazos.length;
 }
 function conectarGmail() {
-var cid=(document.getElementById('cfgClientId')||{value:''}).value||EMAIL.cfg.clientId;
-if(!cid){openModal('mEmailConfig');toast('Configure o Client ID primeiro','orange');return;}
-EMAIL.cfg.clientId=cid;DB.save('lex_gmail_cfg',EMAIL.cfg);
+var cid=EMAIL.cfg.clientId||'';
 var redirect='https://amilcaradvocacia.github.io/meu-app-lexoffice/';
 var scope='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar';
-var url='https://accounts.google.com/o/oauth2/v2/auth'
-+'?client_id='+encodeURIComponent(cid)
-+'&redirect_uri='+encodeURIComponent(redirect)
-+'&response_type=token'
-+'&scope='+encodeURIComponent(scope)
-+'&prompt=consent';
-toast('Redirecionando para o Google...','teal');
-setTimeout(function(){window.location.href=url;},500);
+var url='https://accounts.google.com/o/oauth2/v2/auth?client_id='+encodeURIComponent(cid)+'&redirect_uri='+encodeURIComponent(redirect)+'&response_type=token&scope='+encodeURIComponent(scope)+'&prompt=consent';
+window.location.href=url;
 }
 function iniciarOAuth() {
 conectarGmail();
