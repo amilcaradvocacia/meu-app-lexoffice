@@ -34,7 +34,7 @@ toast('✅ Gmail conectado com sucesso!','green');
 }
 }
 })();
-var DB={_mem:{},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||"null");}catch(e){}if(v)this._mem[k]=v;return v;}};
+var DB={_mem:{},_ck:function(k,v){try{if(!v){document.cookie=k+"=;expires=Thu,01 Jan 1970 00:00:00 GMT;path=/";return;}var e=new Date();e.setFullYear(e.getFullYear()+1);document.cookie=k+"="+encodeURIComponent(JSON.stringify(v))+";expires="+e.toUTCString()+";path=/";}catch(e){}},_rck:function(k){try{var m=document.cookie.match("(?:^|; )"+k+"=([^;]*)");return m?JSON.parse(decodeURIComponent(m[1])):null;}catch(e){return null;}},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}try{sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}this._ck(k,v);},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||"null");}catch(e){}if(!v)try{v=JSON.parse(sessionStorage.getItem(k)||"null");}catch(e){}if(!v)v=this._rck(k);if(v!==null)this._mem[k]=v;return v;}};
 var S = {
 usuarios: [
 {id:1,nome:'Dr. Carlos Lima',perfil:'advogado',oab:'OAB/PR 22.111',cor:'#c9a84c',email:'carlos@escritorio.com',tel:'(42)3033-0001',ativo:true},
@@ -78,8 +78,13 @@ if (id === 'mAutoFill') buscarXLS();
 if (id === 'mUsuarios') renderUsuariosAdmin();
 if (id === 'mEmailConfig') {
 var re=document.getElementById('cfgResp'); if(re) re.innerHTML=respSels();
-var ci=document.getElementById('cfgClientId'); if(ci&&EMAIL.cfg.clientId) ci.value=EMAIL.cfg.clientId;
-var cs=document.getElementById('cfgClientSecret'); if(cs&&EMAIL.cfg.secret) cs.value='••••••••••••••••••••••••';
+var ci=document.getElementById('cfgClientId');
+if(ci){ci.value=EMAIL.cfg.clientId||'';}
+var cs=document.getElementById('cfgClientSecret');
+if(cs){cs.value=EMAIL.cfg.secret?'••••••••••••••••••••':'';}
+var oauthSt=document.getElementById('oauthSt');
+if(oauthSt&&EMAIL.ok)oauthSt.textContent='✅ Gmail autorizado';
+else if(oauthSt&&EMAIL.cfg.clientId)oauthSt.textContent='Client ID configurado — clique em Autorizar Gmail';
 }
 if (id === 'mProcesso') {
 switchTab('dados');
@@ -620,9 +625,9 @@ S.procFiltrados = [].concat(XLS);
 S.cFiltrados = [].concat(S.clientes);
 renderKPIClientes();
 var _savedCfg=DB.load('lex_gmail_cfg');
-if(_savedCfg){EMAIL.cfg=Object.assign(EMAIL.cfg,_savedCfg);}
+if(_savedCfg&&_savedCfg.clientId){EMAIL.cfg=Object.assign(EMAIL.cfg,_savedCfg);}
 var _savedAuth=DB.load('lex_gmail_auth');
-if(_savedAuth){EMAIL.ok=true;EMAIL.token=_savedAuth;}
+if(_savedAuth&&typeof _savedAuth==='string'&&_savedAuth.length>10){EMAIL.ok=true;EMAIL.token=_savedAuth;}
 })();
 var XLS2_LOADED = false;
 var XLS2_LOADING = false;
@@ -1019,11 +1024,16 @@ var s=document.getElementById('oauthSt'); if(s) s.textContent='Aguardando autori
 eLog('Redirecionado para Google OAuth', 'teal');
 }
 function salvarCredGmail() {
-EMAIL.cfg.clientId = (document.getElementById('cfgClientId')||{value:''}).value;
-EMAIL.cfg.secret = (document.getElementById('cfgClientSecret')||{value:''}).value;
-DB.save('lex_gmail_cfg', EMAIL.cfg);
-toast('Credenciais salvas','green');
-eLog('Credenciais OAuth salvas', 'ok');
+var cid=(document.getElementById('cfgClientId')||{value:''}).value.trim();
+var sec=(document.getElementById('cfgClientSecret')||{value:''}).value.trim();
+if(!cid){var ci=document.getElementById('cfgClientId');if(ci)ci.style.border='2px solid #f85149';alert('Cole o Client ID do Google Cloud Console no campo CLIENT ID');return;}
+EMAIL.cfg.clientId=cid;
+if(sec&&sec.indexOf('•')<0&&sec.length>5)EMAIL.cfg.secret=sec;
+DB.save('lex_gmail_cfg',EMAIL.cfg);
+var btn=document.querySelector('[onclick="salvarCredGmail()"]');
+if(btn){var orig=btn.innerHTML;btn.innerHTML='✅ Salvo!';btn.style.background='rgba(62,207,207,.3)';setTimeout(function(){btn.innerHTML=orig;btn.style.background='';},3000);}
+var ci=document.getElementById('cfgClientId');if(ci)ci.style.border='1px solid var(--teal)';
+try{toast('✅ Client ID salvo! Clique em Autorizar Gmail.','green');}catch(e){alert('Salvo!');}
 }
 function salvarCfgCompleta() {
 EMAIL.cfg.clientId = (document.getElementById('cfgClientId')||{value:''}).value || EMAIL.cfg.clientId;
