@@ -15,7 +15,26 @@ Vara: 2ª Vara Cível - Ponta Grossa/PR"></textarea></div><div style="display:fl
 const XLS=[];
 </script>
 
-<script>var DB={_mem:{},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||"null");}catch(e){}if(v)this._mem[k]=v;return v;}};
+<script>
+(function(){
+var hash=window.location.hash;
+if(hash&&hash.includes('access_token=')){
+var params=new URLSearchParams(hash.replace('#','?').replace('#','&'));
+var token=params.get('access_token')||hash.split('access_token=')[1].split('&')[0];
+if(token){
+DB.save('lex_gmail_auth',token);
+EMAIL.ok=true;EMAIL.token=token;
+history.replaceState(null,null,window.location.pathname);
+setTimeout(function(){
+var btn=document.getElementById('btnGmail');if(btn){btn.textContent='✅ Gmail Conectado';btn.style.background='rgba(62,207,207,.18)';btn.style.color='var(--teal)';}
+var badge=document.getElementById('gmailOkBadge');if(badge)badge.style.display='inline-block';
+var banner=document.getElementById('gmailBanner');if(banner){banner.style.display='flex';banner.textContent='✅ Gmail conectado e autorizado!';}
+toast('✅ Gmail conectado com sucesso!','green');
+},500);
+}
+}
+})();
+var DB={_mem:{},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||"null");}catch(e){}if(v)this._mem[k]=v;return v;}};
 var S = {
 usuarios: [
 {id:1,nome:'Dr. Carlos Lima',perfil:'advogado',oab:'OAB/PR 22.111',cor:'#c9a84c',email:'carlos@escritorio.com',tel:'(42)3033-0001',ativo:true},
@@ -57,8 +76,15 @@ var el = document.getElementById(id);
 if (el) el.classList.add('open');
 if (id === 'mAutoFill') buscarXLS();
 if (id === 'mUsuarios') renderUsuariosAdmin();
-if (id === 'mEmailConfig') { var re=document.getElementById('cfgResp'); if(re) re.innerHTML=respSels(); }
-if (id === 'mProcesso') { switchTab('dados'); }
+if (id === 'mEmailConfig') {
+var re=document.getElementById('cfgResp'); if(re) re.innerHTML=respSels();
+var ci=document.getElementById('cfgClientId'); if(ci&&EMAIL.cfg.clientId) ci.value=EMAIL.cfg.clientId;
+var cs=document.getElementById('cfgClientSecret'); if(cs&&EMAIL.cfg.secret) cs.value='••••••••••••••••••••••••';
+}
+if (id === 'mProcesso') {
+switchTab('dados');
+var b=document.getElementById('autoFillBanner');if(b)b.style.display='none';
+}
 if (id === 'mPrazo' || id === 'mTarefa') preencherRespSel();
 }
 function closeModal(id) {
@@ -593,6 +619,10 @@ if (g && u) g.textContent = u.nome;
 S.procFiltrados = [].concat(XLS);
 S.cFiltrados = [].concat(S.clientes);
 renderKPIClientes();
+var _savedCfg=DB.load('lex_gmail_cfg');
+if(_savedCfg){EMAIL.cfg=Object.assign(EMAIL.cfg,_savedCfg);}
+var _savedAuth=DB.load('lex_gmail_auth');
+if(_savedAuth){EMAIL.ok=true;EMAIL.token=_savedAuth;}
 })();
 var XLS2_LOADED = false;
 var XLS2_LOADING = false;
@@ -993,10 +1023,13 @@ eLog('Redirecionado para Google OAuth', 'teal');
 function salvarCredGmail() {
 EMAIL.cfg.clientId = (document.getElementById('cfgClientId')||{value:''}).value;
 EMAIL.cfg.secret = (document.getElementById('cfgClientSecret')||{value:''}).value;
+DB.save('lex_gmail_cfg', EMAIL.cfg);
 toast('Credenciais salvas','green');
 eLog('Credenciais OAuth salvas', 'ok');
 }
 function salvarCfgCompleta() {
+EMAIL.cfg.clientId = (document.getElementById('cfgClientId')||{value:''}).value || EMAIL.cfg.clientId;
+EMAIL.cfg.secret = (document.getElementById('cfgClientSecret')||{value:''}).value || EMAIL.cfg.secret;
 EMAIL.cfg.prazo = parseInt((document.getElementById('cfgPrazo')||{value:'15'}).value)||15;
 EMAIL.cfg.dedup = (document.getElementById('cfgDedup')||{value:'cnj'}).value;
 EMAIL.cfg.resp = parseInt((document.getElementById('cfgResp')||{value:'1'}).value)||1;
@@ -1004,6 +1037,7 @@ EMAIL.cfg.calId = (document.getElementById('cfgCalId')||{value:'primary'}).value
 EMAIL.cfg.prefix = (document.getElementById('cfgPrefix')||{value:'[LEX] '}).value;
 EMAIL.cfg.autoAgenda = (document.getElementById('cfgAutoAgenda')||{checked:true}).checked;
 EMAIL.cfg.autoTarefa = (document.getElementById('cfgAutoTarefa')||{checked:true}).checked;
+DB.save('lex_gmail_cfg', EMAIL.cfg);
 closeModal('mEmailConfig');
 toast('Configurações salvas!','green');
 eLog('Configurações atualizadas', 'ok');
