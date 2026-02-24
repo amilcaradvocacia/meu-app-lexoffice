@@ -79,12 +79,14 @@ if (id === 'mUsuarios') renderUsuariosAdmin();
 if (id === 'mEmailConfig') {
 var re=document.getElementById('cfgResp'); if(re) re.innerHTML=respSels();
 var ci=document.getElementById('cfgClientId');
-if(ci){ci.value=EMAIL.cfg.clientId||'';}
+if(ci){
+var _cid=DB.load('lex_gmail_cfg');
+ci.value=(_cid&&_cid.clientId)||EMAIL.cfg.clientId||'';
+}
 var cs=document.getElementById('cfgClientSecret');
 if(cs){cs.value=EMAIL.cfg.secret?'••••••••••••••••••••':'';}
 var oauthSt=document.getElementById('oauthSt');
-if(oauthSt&&EMAIL.ok)oauthSt.textContent='✅ Gmail autorizado';
-else if(oauthSt&&EMAIL.cfg.clientId)oauthSt.textContent='Client ID configurado — clique em Autorizar Gmail';
+if(oauthSt){oauthSt.textContent=EMAIL.ok?'✅ Gmail autorizado e ativo':'Clique em Autorizar Gmail para conectar';}
 }
 if (id === 'mProcesso') {
 switchTab('dados');
@@ -969,7 +971,7 @@ if(el){el.value=nome;filtrarProcessos();}
 },300);
 }
 var EMAIL = {
-cfg: { clientId:'', secret:'', calId:'primary', prefix:'[LEX] ', prazo:15, dedup:'cnj', autoAgenda:true, autoTarefa:true, resp:1, intervalo:15 },
+cfg: { clientId:'245855517843-4fstpfsna79doa6krmvg3hu5p3o7jtdm.apps.googleusercontent.com', secret:'', calId:'primary', prefix:'[LEX] ', prazo:15, dedup:'cnj', autoAgenda:true, autoTarefa:true, resp:1, intervalo:15 },
 ok: false,
 token: null,
 prazos: [],
