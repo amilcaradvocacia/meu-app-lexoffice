@@ -1007,23 +1007,19 @@ function conectarGmail() {
 var cid=(document.getElementById('cfgClientId')||{value:''}).value||EMAIL.cfg.clientId;
 if(!cid){openModal('mEmailConfig');toast('Configure o Client ID primeiro','orange');return;}
 EMAIL.cfg.clientId=cid;DB.save('lex_gmail_cfg',EMAIL.cfg);
+var redirect='https://amilcaradvocacia.github.io/meu-app-lexoffice/';
+var scope='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar';
 var url='https://accounts.google.com/o/oauth2/v2/auth'
 +'?client_id='+encodeURIComponent(cid)
-+'&redirect_uri='+encodeURIComponent('https://amilcaradvocacia.github.io/meu-app-lexoffice/')
++'&redirect_uri='+encodeURIComponent(redirect)
 +'&response_type=token'
-+'&scope='+encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar')
-+'&prompt=consent&access_type=online';
-window.location.href=url;
++'&scope='+encodeURIComponent(scope)
++'&prompt=consent';
+toast('Redirecionando para o Google...','teal');
+setTimeout(function(){window.location.href=url;},500);
 }
 function iniciarOAuth() {
-var cid = document.getElementById('cfgClientId') ? document.getElementById('cfgClientId').value : EMAIL.cfg.clientId;
-if (!cid) { toast('Insira o Client ID primeiro','orange'); return; }
-var scope = encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar');
-var redir = encodeURIComponent('https://amilcaradvocacia.github.io/meu-app-lexoffice/');
-var url = 'https://accounts.google.com/o/oauth2/v2/auth?client_id='+cid+'&redirect_uri='+redir+'&response_type=code&scope='+scope+'&access_type=offline';
-window.open(url,'_blank');
-var s=document.getElementById('oauthSt'); if(s) s.textContent='Aguardando autorização...';
-eLog('Redirecionado para Google OAuth', 'teal');
+conectarGmail();
 }
 function salvarCredGmail() {
 var cid=(document.getElementById('cfgClientId')||{value:''}).value.trim();
