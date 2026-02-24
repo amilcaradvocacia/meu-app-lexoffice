@@ -997,18 +997,16 @@ var ec = document.getElementById('prazosAutoCnt');
 if (ec) ec.textContent = EMAIL.prazos.length;
 }
 function conectarGmail() {
-if (!EMAIL.cfg.clientId) { openModal('mEmailConfig'); toast('Configure o Client ID do Gmail primeiro','orange'); return; }
-toast('Abrindo autenticação Google...','teal');
-eLog('Iniciando OAuth 2.0 — Gmail API', 'teal');
-setTimeout(function(){
-EMAIL.ok = true;
-var btn=document.getElementById('btnGmail'); if(btn){btn.textContent='✅ Gmail Conectado';btn.style.background='rgba(62,207,207,.18)';btn.style.color='var(--teal)';}
-var badge=document.getElementById('gmailOkBadge'); if(badge) badge.style.display='inline-block';
-var banner=document.getElementById('gmailBanner'); if(banner){banner.style.display='flex';banner.textContent='✅ Gmail conectado — monitorando publicacoes@impacta.adv.br e publicacoes-diarios@jusbrasil.com.br';}
-eLog('Gmail OAuth autorizado', 'ok');
-toast('Gmail conectado! Monitoramento ativo.','green');
-carregarInbox();
-}, 1800);
+var cid=(document.getElementById('cfgClientId')||{value:''}).value||EMAIL.cfg.clientId;
+if(!cid){openModal('mEmailConfig');toast('Configure o Client ID primeiro','orange');return;}
+EMAIL.cfg.clientId=cid;DB.save('lex_gmail_cfg',EMAIL.cfg);
+var url='https://accounts.google.com/o/oauth2/v2/auth'
++'?client_id='+encodeURIComponent(cid)
++'&redirect_uri='+encodeURIComponent('https://amilcaradvocacia.github.io/meu-app-lexoffice/')
++'&response_type=token'
++'&scope='+encodeURIComponent('https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar')
++'&prompt=consent&access_type=online';
+window.location.href=url;
 }
 function iniciarOAuth() {
 var cid = document.getElementById('cfgClientId') ? document.getElementById('cfgClientId').value : EMAIL.cfg.clientId;
@@ -1042,34 +1040,25 @@ closeModal('mEmailConfig');
 toast('Configurações salvas!','green');
 eLog('Configurações atualizadas', 'ok');
 }
-function carregarInbox() {
-EMAIL._inbox = [
-{ id:'e1', de:'publicacoes@impacta.adv.br', assunto:'Publicação - Proc. 0012345-66.2023.8.16.0019', data:'19/02/2025 08:14', lido:false, fonte:'impacta',
-corpo:'Processo: 0012345-66.2023.8.16.0019\nPartes: João Silva x Banco do Brasil\nMovimentação: Intimação para apresentar contestação\nPrazo: 06/03/2025 (15 dias corridos)\nVara: 2ª Vara Cível - Ponta Grossa/PR' },
-{ id:'e2', de:'publicacoes@impacta.adv.br', assunto:'Publicação - Proc. 0009871-21.2021.8.16.0019', data:'19/02/2025 08:16', lido:false, fonte:'impacta',
-corpo:'Processo: 0009871-21.2021.8.16.0019\nPartes: Maria Rodrigues x Abimed Serviços Médicos\nMovimentação: Decisão - Deferido pedido de tutela provisória\nPrazo para recurso: 27/02/2025\nVara: 1ª JCJ - Ponta Grossa/PR' },
-{ id:'e3', de:'publicacoes-diarios@jusbrasil.com.br', assunto:'[JusBrasil] Diário Oficial 19/02/2025', data:'19/02/2025 09:30', lido:false, fonte:'jusbrasil',
-corpo:'Processo: 0012345-66.2023.8.16.0019\nPartes: João Silva x Banco do Brasil\nMovimentação: Intimação para contestação\n[DUPLICATA - mesma publicação da Impacta]\n\nProcesso: 0034567-12.2022.8.16.0019\nPartes: Pedro Almeida x Município de PG\nMovimentação: Audiência designada para 10/03/2025 às 10:00h\nVara: 3ª Vara Cível - PG/PR' },
-{ id:'e4', de:'publicacoes-diarios@jusbrasil.com.br', assunto:'[JusBrasil] Novos processos 19/02/2025', data:'19/02/2025 10:05', lido:true, fonte:'jusbrasil',
-corpo:'Processo: 0056789-33.2024.8.16.0019\nPartes: Novo Cliente x Construtora Alfa\nMovimentação: Distribuição - Ação de indenização\nVara: 4ª Vara Cível - PG/PR' }
-];
-var el = document.getElementById('inboxList');
-if (!el) return;
-el.innerHTML = EMAIL._inbox.map(function(e){
-var bc = e.fonte==='impacta'?'rgba(62,207,207,.3)':'rgba(91,141,238,.3)';
-var badge = e.fonte==='impacta'?'<span class="badge bteal" style="font-size:9px">Impacta</span>':'<span class="badge bb" style="font-size:9px">JusBrasil</span>';
-var dot = e.lido?'':'<div style="width:6px;height:6px;background:var(--teal);border-radius:50%;flex-shrink:0;margin-top:2px"></div>';
-return '<div style="padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;border-left:3px solid '+bc+'" onclick="abrirEmail(\''+e.id+'\')">'
-+'<div style="display:flex;align-items:flex-start;gap:7px;margin-bottom:3px">'+dot
-+'<div style="font-size:12.5px;color:var(--text);font-weight:'+(e.lido?400:600)+';flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+e.assunto+'</div>'+badge+'</div>'
-+'<div style="font-size:11px;color:var(--text3);margin-bottom:6px">'+e.de+' · '+e.data+'</div>'
-+'<div style="display:flex;gap:6px">'
-+'<button class="btn btn-teal btn-xs" onclick="event.stopPropagation();processarUm(\''+e.id+'\')">⚡ Processar</button>'
-+'<button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();abrirEmail(\''+e.id+'\')">👁 Ver</button>'
-+'</div></div>';
-}).join('');
-eLog('Inbox carregado: '+EMAIL._inbox.length+' e-mails', 'ok');
+function ativarGmailUI(){var btn=document.getElementById('btnGmail');if(btn){btn.textContent='✅ Gmail Conectado';btn.style.background='rgba(62,207,207,.18)';btn.style.color='var(--teal)';}var badge=document.getElementById('gmailOkBadge');if(badge)badge.style.display='inline-block';var banner=document.getElementById('gmailBanner');if(banner){banner.style.display='flex';banner.textContent='✅ Gmail conectado e monitorando!';}}
+function carregarInbox(){
+if(!EMAIL.ok||!EMAIL.token){var tb=document.getElementById('inboxBody');if(tb)tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:18px;color:var(--text3)">📧 Conecte o Gmail para ver publicações.</td></tr>';return;}
+ativarGmailUI();
+var tb=document.getElementById('inboxBody');if(tb)tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--teal)">⏳ Carregando emails...</td></tr>';
+var q='from:publicacoes@impacta.adv.br OR from:publicacoes-diarios@jusbrasil.com.br';
+fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q='+encodeURIComponent(q)+'&maxResults=20',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){if(r.status===401){DB.save('lex_gmail_auth',null);EMAIL.ok=false;EMAIL.token='';if(tb)tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:14px;color:#f85149">⚠️ Token expirado — clique em Autorizar Gmail.</td></tr>';return null;}return r.json();}).then(function(d){if(!d)return;if(!d.messages||!d.messages.length){if(tb)tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:14px;color:var(--text3)">📭 Nenhuma publicação encontrada.</td></tr>';return;}_fetchGmailList(d.messages.slice(0,15));}).catch(function(e){if(tb)tb.innerHTML='<tr><td colspan="6" style="text-align:center;padding:14px;color:#f85149">❌ '+e.message+'</td></tr>';});
 }
+function _fetchGmailList(msgs){var res=[];var done=0;msgs.forEach(function(m,idx){fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){return r.json();}).then(function(msg){var hdr={};(msg.payload&&msg.payload.headers||[]).forEach(function(h){hdr[h.name]=h.value;});res[idx]={id:m.id,from:hdr['From']||'',subject:hdr['Subject']||'(sem assunto)',date:hdr['Date']||'',snippet:(msg.snippet||'').substring(0,100)};done++;if(done===msgs.length)_renderGmail(res.filter(Boolean));}).catch(function(){done++;if(done===msgs.length)_renderGmail(res.filter(Boolean));});});}
+function _renderGmail(msgs){
+var tb=document.getElementById('inboxBody');if(!tb)return;
+EMAIL._gmailMsgs=msgs;
+msgs.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+tb.innerHTML=msgs.map(function(m,i){var isJB=m.from.toLowerCase().indexOf('jusbrasil')>=0;var fonte=isJB?'JusBrasil':'Impacta';var cor=isJB?'bo':'bteal';var d=new Date(m.date);var ds=isNaN(d.getTime())?m.date:d.toLocaleDateString('pt-BR');return '<tr style="cursor:pointer" onclick="_abrirGmail('+i+')">'+'<td class="tpl"><span class="badge '+cor+'" style="font-size:10px">'+fonte+'</span></td>'+'<td style="font-size:12px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</td>'+'<td style="font-size:11px;color:var(--text3)">'+ds+'</td>'+'<td style="font-size:11px;color:var(--text2);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.snippet+'</td>'+'<td><span class="badge bb" style="font-size:10px">Novo</span></td>'+'<td class="tpr"><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();_parseGmail('+i+')">⚡ IA</button></td>'+'</tr>';}).join('');
+var cnt=document.getElementById('inboxCount');if(cnt)cnt.textContent=msgs.length;
+var nb=document.getElementById('nbEmails');if(nb&&msgs.length)nb.textContent=msgs.length;
+}
+function _abrirGmail(i){var m=EMAIL._gmailMsgs&&EMAIL._gmailMsgs[i];if(!m)return;fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=full',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){return r.json();}).then(function(msg){var body='';function xb(p){if(p.mimeType==='text/plain'&&p.body&&p.body.data){try{body=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'));}catch(e){}}if(p.parts)p.parts.forEach(xb);}xb(msg.payload||{});var el=document.getElementById('emailDetailContent');if(el)el.innerHTML='<pre style="white-space:pre-wrap;font-size:12px;color:var(--text);max-height:400px;overflow-y:auto">'+body.substring(0,4000)+'</pre>';openModal('mEmailDetalhe');}).catch(function(e){toast('Erro: '+e.message,'orange');});}
+function _parseGmail(i){var m=EMAIL._gmailMsgs&&EMAIL._gmailMsgs[i];if(!m){toast('Email não encontrado','orange');return;}fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=full',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){return r.json();}).then(function(msg){var body='';function xb(p){if(p.mimeType==='text/plain'&&p.body&&p.body.data){try{body=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'));}catch(e){}}if(p.parts)p.parts.forEach(xb);}xb(msg.payload||{});parseEmail(body);}).catch(function(e){toast('Erro: '+e.message,'orange');});}
 function abrirEmail(id) {
 var e = EMAIL._inbox.find(function(x){return x.id===id;});
 if (!e) return;
