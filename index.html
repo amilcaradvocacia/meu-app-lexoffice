@@ -37,7 +37,7 @@ toast('✅ Gmail conectado com sucesso!','green');
 var DB={_mem:{},_ck:function(k,v){try{if(!v){document.cookie=k+"=;expires=Thu,01 Jan 1970 00:00:00 GMT;path=/";return;}var e=new Date();e.setFullYear(e.getFullYear()+1);document.cookie=k+"="+encodeURIComponent(JSON.stringify(v))+";expires="+e.toUTCString()+";path=/";}catch(e){}},_rck:function(k){try{var m=document.cookie.match("(?:^|; )"+k+"=([^;]*)");return m?JSON.parse(decodeURIComponent(m[1])):null;}catch(e){return null;}},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}try{sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}this._ck(k,v);},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||"null");}catch(e){}if(!v)try{v=JSON.parse(sessionStorage.getItem(k)||"null");}catch(e){}if(!v)v=this._rck(k);if(v!==null)this._mem[k]=v;return v;}};
 var S = {
 usuarios: [
-{id:1,nome:'Dr. Carlos Lima',perfil:'advogado',oab:'OAB/PR 22.111',cor:'#c9a84c',email:'carlos@escritorio.com',tel:'(42)3033-0001',ativo:true},
+{id:1,nome:'Dr. Amilcar Cordeiro Teixeira Filho',perfil:'advogado',oab:'OAB/PR 21.856',cor:'#c9a84c',email:'amilcaradvocacia@gmail.com',tel:'(42)3028-4890',ativo:true},
 {id:2,nome:'Dra. Ana Souza',perfil:'advogado',oab:'OAB/PR 31.222',cor:'#5b8dee',email:'ana@escritorio.com',tel:'(42)3033-0002',ativo:true},
 {id:3,nome:'Dr. Paulo Neto',perfil:'associado',oab:'OAB/PR 44.333',cor:'#4caf82',email:'paulo@escritorio.com',tel:'(42)3033-0003',ativo:true},
 {id:4,nome:'Dra. Marta Alves',perfil:'associado',oab:'OAB/PR 55.444',cor:'#9b72e8',email:'marta@escritorio.com',tel:'(42)3033-0004',ativo:true},
@@ -1214,7 +1214,6 @@ return '<tr><td class="tpl" style="font-family:\'DM Mono\',monospace;font-size:1
 var cnt=document.getElementById('prazosAutoCnt'); if(cnt) cnt.textContent=EMAIL.prazos.length;
 }</script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
-  <script src="lexoffice-fixes.js"></script>
   <script src="lexoffice-fixes.js"></script>
   <script src="gmail-module.js"></script>
 </body>
