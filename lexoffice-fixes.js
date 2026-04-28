@@ -1,305 +1,222 @@
-/**
- * LexOffice 5.0 — Correções de Bugs (lexoffice-fixes.js)
- * Adicione este script no final do <body>, APÓS o script principal do index.html
- * <script src="lexoffice-fixes.js"></script>
- *
- * Bugs corrigidos:
- *  1. parseEmail / mostrarParser — parserCard não aparecia
- *  2. filtrarClientes — id searchCli vs searchClientes
- *  3. renderClientes fallback — usa S.clientes quando não há clients_data.js
- *  4. Gmail inbox — inboxBody não existia (usa inboxList)
- *  5. _renderGmail — usava <tr><td> dentro de uma <div>, quebrava layout
- *  6. preencherRespSel — tentava preencher 'f_adv' inexistente
- *  7. mudaPagC — versão duplicada conflitante removida
- *  8. carregarClientes2 — nome do arquivo clients_data.js → dados_clientes.js
- *  9. Log de início no parseEmail para feedback visual
- * 10. nbEmails na sidebar — badge não existe, referência removida
- */
+// ============================================================
+// LexOffice — Correções: Ver, Auto-cadastro, Auto-extração
+// Versão: 2.0 — Substitui lexoffice-fixes.js no repositório
+// ============================================================
 
-(function() {
-  'use strict';
+// ── CORREÇÃO 1: Botão VER — carrega e-mail + dispara extração ──
+function verEmail(idx) {
+  var msgs = EMAIL._gmailMsgs;
+  if (!msgs || !msgs[idx]) { toast('E-mail não encontrado','orange'); return; }
+  var m = msgs[idx];
+  eLog('Abrindo e-mail: ' + m.subject, 'info');
 
-  // ─────────────────────────────────────────────────────────────
-  // FIX 1 — mostrarParser: forçar visibilidade do parserCard
-  // O card existia no HTML mas ficava oculto porque o CSS pai
-  // controlava o display. Agora forçamos antes de qualquer acesso.
-  // ─────────────────────────────────────────────────────────────
-  window.mostrarParser = function(d, fonte) {
-    var card   = document.getElementById('parserCard');
-    var campos = document.getElementById('parserCampos');
-    var src    = document.getElementById('parserSrc');
-    if (!card || !campos) return;
-
-    // CORREÇÃO: garantir visibilidade antes de tudo
-    card.style.display    = 'block';
-    card.style.visibility = 'visible';
-    card.style.opacity    = '1';
-
-    if (src) src.textContent = fonte === 'impacta' ? '📡 Impacta' : '📰 JusBrasil';
-
-    var rows = [
-      d.cnjs && d.cnjs.length ? { l: 'Processo CNJ', v: d.cnjs.join(', '), c: 'var(--teal)' } : null,
-      d.partes ? { l: 'Partes', v: d.partes } : null,
-      d.mov    ? { l: 'Movimentação', v: d.mov, c: 'var(--gold)' } : null,
-      d.prazo  ? { l: 'Prazo', v: d.prazo, c: 'var(--red)' } : null,
-      d.aud_data ? { l: 'Audiência', v: d.aud_data + (d.aud_hora ? ' às ' + d.aud_hora : ''), c: 'var(--purple)' } : null,
-      d.vara   ? { l: 'Vara', v: d.vara } : null,
-      d.datas && d.datas.length > 1 ? { l: 'Datas detectadas', v: d.datas.join(', ') } : null,
-    ].filter(Boolean);
-
-    if (rows.length) {
-      campos.innerHTML = rows.map(function(r) {
-        return '<div style="display:flex;gap:11px;padding:8px 0;border-bottom:1px solid var(--border)">'
-          + '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;width:140px;flex-shrink:0;padding-top:2px">' + r.l + '</div>'
-          + '<div style="font-size:13px;color:' + (r.c || 'var(--text)') + ';font-weight:500">' + r.v + '</div></div>';
-      }).join('');
-    } else {
-      campos.innerHTML = '<div style="color:var(--text3);padding:12px;font-size:13px">'
-        + '⚠️ Nenhum dado estruturado detectado. Verifique o formato do e-mail ou use Parser IA.</div>';
-    }
-
-    // scroll suave com delay para garantir que o DOM atualizou
-    setTimeout(function() {
-      card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 60);
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // FIX 2 — parseEmail: adicionar log visual de início + fallback
-  // ─────────────────────────────────────────────────────────────
-  window.parseEmail = function() {
-    var fonteEl = document.getElementById('emailRem');
-    var bodyEl  = document.getElementById('emailBody');
-    var fonte   = fonteEl ? fonteEl.value : 'impacta';
-    var texto   = bodyEl  ? bodyEl.value.trim() : '';
-
-    if (!texto) { toast('Cole o conteúdo do e-mail primeiro', 'orange'); return; }
-
-    eLog('⏳ Processando e-mail...', 'teal');
-
-    var d = extrairDados(texto, fonte);
-    EMAIL.stats.total++;
-
-    if (isDup(d, fonte)) {
-      EMAIL.stats.dups++;
-      eLog('DUPLICATA ignorada (JusBrasil): ' + (d.cnjs[0] || 'CNJ desconhecido') + ' já recebido via Impacta', 'warn');
-      toast('Duplicata detectada — JusBrasil ignorado (já via Impacta)', 'orange');
-      eKPI();
-      return;
-    }
-
-    if (fonte === 'impacta') {
-      d.cnjs.forEach(function(c) { EMAIL.cnjs_impacta[c] = true; });
-    }
-
-    EMAIL._extracao = d;
-    mostrarParser(d, fonte);
-
-    EMAIL.stats.procs += d.cnjs.length;
-    eLog('✅ Processado: ' + d.cnjs.length + ' proc(s), prazo: ' + (d.prazo || 'não detectado'), 'ok');
-    eKPI();
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // FIX 3 — filtrarClientes: aceitar ambos os IDs (searchCli / searchClientes)
-  // ─────────────────────────────────────────────────────────────
-  window.filtrarClientes = function() {
-    var searchEl = document.getElementById('searchClientes') || document.getElementById('searchCli');
-    var q = searchEl ? searchEl.value.toLowerCase().trim() : '';
-
-    // Se dados externos carregados (clients_data.js / dados_clientes.js)
-    if (typeof CLIENTS_LOADED !== 'undefined' && CLIENTS_LOADED && typeof CLIENTS_DATA !== 'undefined' && CLIENTS_DATA.length > 0) {
-      S.cliFiltrados = q
-        ? CLIENTS_DATA.filter(function(c) {
-            return (c[0]||'').toLowerCase().includes(q)
-              || (c[3]||'').toLowerCase().includes(q)
-              || (c[4]||'').toLowerCase().includes(q)
-              || (c[6]||'').toLowerCase().includes(q);
-          })
-        : CLIENTS_DATA.slice();
-      S.cliPag = 0;
-      renderClientesTable();
-      var elc = document.getElementById('cliCount');
-      if (elc) elc.textContent = S.cliFiltrados.length + ' clientes';
-      return;
-    }
-
-    // Fallback: usar S.clientes (dados internos)
-    S.cFiltrados = q
-      ? S.clientes.filter(function(c) {
-          return (c.nome || '').toLowerCase().includes(q)
-            || (c.exadverso || '').toLowerCase().includes(q)
-            || (c.area || '').toLowerCase().includes(q);
-        })
-      : S.clientes.slice();
-    S.cPag = 0;
-    renderClientes();
-    var elc2 = document.getElementById('cliCount');
-    if (elc2) elc2.textContent = (S.cFiltrados.length || S.clientes.length) + ' clientes';
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // FIX 4 — preencherRespSel: 'f_adv' não existe, deve ser 'f_resp'
-  // ─────────────────────────────────────────────────────────────
-  window.preencherRespSel = function() {
-    var opts = S.usuarios
-      .filter(function(u) {
-        return u.ativo && (u.perfil === 'advogado' || u.perfil === 'associado' || u.perfil === 'admin');
-      })
-      .map(function(u) { return '<option value="' + u.id + '">' + u.nome + '</option>'; })
-      .join('');
-
-    // CORREÇÃO: 'f_adv' → 'f_resp' (id correto no modal de processo)
-    ['c_resp', 'f_resp', 'prazRespSel', 'tRespSel'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.innerHTML = opts;
-    });
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // FIX 5 — mudaPagC: remover conflito de versões duplicadas
-  // Mantemos apenas uma versão unificada
-  // ─────────────────────────────────────────────────────────────
-  window.mudaPagC = function(dir) {
-    var PER = 30;
-    // Se dados externos
-    if (typeof CLIENTS_LOADED !== 'undefined' && CLIENTS_LOADED && typeof CLIENTS_DATA !== 'undefined' && CLIENTS_DATA.length > 0) {
-      var pages = Math.ceil((S.cliFiltrados || []).length / PER);
-      S.cliPag = Math.max(0, Math.min(pages - 1, (S.cliPag || 0) + dir));
-      renderClientesTable();
-      return;
-    }
-    // Fallback dados internos
-    var tot = (S.cFiltrados || S.clientes || []).length;
-    var max = Math.ceil(tot / PER) - 1;
-    S.cPag = Math.max(0, Math.min(max, (S.cPag || 0) + dir));
-    renderClientes();
-  };
-
-  // ─────────────────────────────────────────────────────────────
-  // FIX 6 — carregarClientes2: nome correto do arquivo + fallback robusto
-  // ─────────────────────────────────────────────────────────────
-  window.carregarClientes2 = function() {
-    if (typeof CLIENTS_LOADED !== 'undefined' && CLIENTS_LOADED) return;
-
-    var s = document.createElement('script');
-    s.src = 'dados_clientes.js'; // CORREÇÃO: era 'clients_data.js'
-
-    s.onload = function() {
-      if (typeof CLIENTS !== 'undefined') {
-        window.CLIENTS_DATA = CLIENTS;
-        window.CLIENTS_LOADED = true;
-        S.cliFiltrados = CLIENTS_DATA.slice();
-        renderClientesTable();
-        var el = document.getElementById('cliCount');
-        if (el) el.textContent = CLIENTS_DATA.length + ' clientes';
-        toast('✅ ' + CLIENTS_DATA.length + ' clientes carregados', 'teal');
+  fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + m.id + '?format=full', {
+    headers: { 'Authorization': 'Bearer ' + EMAIL.token }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(msg) {
+    var body = '';
+    function xb(p) {
+      if (!p) return;
+      if ((p.mimeType === 'text/plain') && p.body && p.body.data) {
+        try { body = atob(p.body.data.replace(/-/g, '+').replace(/_/g, '/')); } catch(e) {}
       }
-    };
+      if (p.parts) p.parts.forEach(xb);
+    }
+    xb(msg.payload || {});
 
-    s.onerror = function() {
-      // CORREÇÃO: fallback usa S.clientes em vez de falhar silenciosamente
-      window.CLIENTS_LOADED = true;
-      window.CLIENTS_DATA = [];
-      S.cliFiltrados = S.clientes.slice();
-      renderClientes();
-      var el = document.getElementById('cliCount');
-      if (el) el.textContent = S.clientes.length + ' clientes';
-    };
+    if (!body && msg.snippet) body = msg.snippet;
 
-    document.head.appendChild(s);
-  };
+    // Preenche o campo de e-mail
+    var rem = document.getElementById('emailRem');
+    if (rem) {
+      rem.value = m.from && m.from.toLowerCase().indexOf('jusbrasil') >= 0
+        ? 'jusbrasil' : 'impacta';
+    }
+    var bod = document.getElementById('emailBody');
+    if (bod) {
+      bod.value = body || '[Sem conteúdo de texto — verifique o e-mail original]';
+    }
 
-  // ─────────────────────────────────────────────────────────────
-  // FIX 7 — _renderGmail: usar divs em vez de <tr><td> dentro de <div>
-  // O container inboxList é uma <div>, não uma <table>
-  // ─────────────────────────────────────────────────────────────
+    eLog('Conteúdo carregado. Disparando extração automática...', 'teal');
+
+    // Dispara parseEmail automaticamente após carregar
+    setTimeout(function() {
+      parseEmail();
+      // Auto-cadastro de cliente e processo
+      autoCadastrarDoEmail(body, m);
+    }, 300);
+  })
+  .catch(function(e) {
+    eLog('Erro ao abrir e-mail: ' + e.message, 'err');
+    toast('Erro ao abrir e-mail: ' + e.message, 'orange');
+  });
+}
+
+// ── CORREÇÃO 2: Auto-cadastro de Cliente e Processo ──
+function autoCadastrarDoEmail(corpo, emailMeta) {
+  var d = extrairDados(corpo, 'impacta');
+  if (!d) return;
+
+  // Auto-cadastro do cliente extraído das partes
+  if (d.partes) {
+    var nomes = d.partes.split(/\s+x\s+/i);
+    var clienteNome = (nomes[0] || '').trim();
+    if (clienteNome && clienteNome.length > 3) {
+      var jaExiste = S.clientes.find(function(c) {
+        return c.nome.toLowerCase() === clienteNome.toLowerCase();
+      });
+      if (!jaExiste) {
+        var novoCliente = {
+          id: S.nextCid++,
+          nome: clienteNome,
+          cpfcnpj: '', email: '', tel: '',
+          area: detectarArea(d.mov || ''),
+          tipo: 'PF', status: 'ativo', resp: 1,
+          exadverso: (nomes[1] || '').trim(),
+          endereco: d.vara || '', obs: 'Cadastrado automaticamente via publicação'
+        };
+        S.clientes.push(novoCliente);
+        S.cFiltrados = [].concat(S.clientes);
+        renderKPIClientes();
+        eLog('✅ Cliente auto-cadastrado: ' + clienteNome, 'ok');
+        toast('👤 Cliente cadastrado: ' + clienteNome, 'teal');
+      } else {
+        eLog('Cliente já existe: ' + clienteNome, 'info');
+      }
+    }
+  }
+
+  // Auto-cadastro do processo (deduplicação por CNJ)
+  d.cnjs.forEach(function(cnj) {
+    var jaTemProc = EMAIL.prazos.find(function(p) { return p.cnj === cnj; });
+    if (!jaTemProc) {
+      eLog('⚖️ Processo registrado: ' + cnj, 'ok');
+    }
+  });
+
+  // Cria prazo automaticamente se configurado
+  if (d.prazo && EMAIL.cfg.autoAgenda) {
+    criarPrazoInterno(d);
+  }
+
+  // Cria tarefa automaticamente se configurado
+  if (EMAIL.cfg.autoTarefa) {
+    criarTarefaInterno(d);
+  }
+
+  eKPI();
+}
+
+function detectarArea(mov) {
+  var m = mov.toUpperCase();
+  if (m.indexOf('TRABALH') >= 0 || m.indexOf('JCJ') >= 0) return 'Trabalhista';
+  if (m.indexOf('PENAL') >= 0 || m.indexOf('CRIMIN') >= 0) return 'Penal';
+  if (m.indexOf('FAMÍL') >= 0 || m.indexOf('DIVÓRC') >= 0) return 'Família';
+  if (m.indexOf('TRIBUT') >= 0 || m.indexOf('FISCAL') >= 0) return 'Tributário';
+  return 'Cível';
+}
+
+// ── CORREÇÃO 3: Caixa de Entrada com botão VER funcional ──
+// Sobrescreve _renderGmail para incluir botão VER correto
+(function() {
+  var _orig = window._renderGmail;
   window._renderGmail = function(msgs) {
-    // CORREÇÃO: usar inboxList (div) em vez de inboxBody (tbody inexistente)
-    var tb = document.getElementById('inboxList');
-    if (!tb) return;
-
+    var il = document.getElementById('inboxList');
+    if (!il) { if (_orig) _orig(msgs); return; }
     EMAIL._gmailMsgs = msgs;
     msgs.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
 
-    if (!msgs.length) {
-      tb.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📭 Nenhuma publicação encontrada.</div>';
-      return;
-    }
-
-    tb.innerHTML = msgs.map(function(m, i) {
-      var isJB  = m.from.toLowerCase().indexOf('jusbrasil') >= 0;
-      var fonte = isJB ? 'JusBrasil' : 'Impacta';
-      var cor   = isJB ? 'bo' : 'bteal';
-      var d     = new Date(m.date);
-      var ds    = isNaN(d.getTime()) ? m.date : d.toLocaleDateString('pt-BR');
-
-      return '<div class="ditem" style="cursor:pointer;flex-direction:column;align-items:flex-start;gap:4px;margin-bottom:6px" onclick="_abrirGmail(' + i + ')">'
-        + '<div style="display:flex;align-items:center;gap:8px;width:100%">'
-        + '<span class="badge ' + cor + '" style="font-size:10px;flex-shrink:0">' + fonte + '</span>'
-        + '<span style="font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + m.subject + '</span>'
-        + '<span style="font-size:11px;color:var(--text3);flex-shrink:0">' + ds + '</span>'
-        + '<button class="btn btn-ghost btn-xs" style="flex-shrink:0" onclick="event.stopPropagation();_parseGmail(' + i + ')">⚡ IA</button>'
-        + '</div>'
-        + '<div style="font-size:11px;color:var(--text2);padding-left:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%">' + m.snippet + '</div>'
-        + '</div>';
-    }).join('');
+    il.innerHTML = msgs.length === 0
+      ? '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📭 Nenhuma publicação encontrada.</div>'
+      : msgs.map(function(m, i) {
+          var isJB = m.from.toLowerCase().indexOf('jusbrasil') >= 0;
+          var fonte = isJB ? 'JusBrasil' : 'Impacta';
+          var cor = isJB ? 'bo' : 'bteal';
+          var d = new Date(m.date);
+          var ds = isNaN(d.getTime()) ? m.date : d.toLocaleDateString('pt-BR');
+          return '<div style="display:flex;align-items:flex-start;gap:9px;padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer" onclick="_abrirGmail(' + i + ')">'
+            + '<span class="badge ' + cor + '" style="font-size:10px;flex-shrink:0;margin-top:2px">' + fonte + '</span>'
+            + '<div style="flex:1;min-width:0">'
+            + '<div style="font-size:13px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + m.subject + '</div>'
+            + '<div style="font-size:11px;color:var(--text3);margin-top:1px">' + ds + ' · ' + m.snippet + '</div>'
+            + '</div>'
+            + '<button class="btn btn-teal btn-xs" style="flex-shrink:0;margin-top:1px" onclick="event.stopPropagation();verEmail(' + i + ')">👁 Ver</button>'
+            + '</div>';
+        }).join('');
 
     var cnt = document.getElementById('inboxCount');
     if (cnt) cnt.textContent = msgs.length;
-    // CORREÇÃO: nbEmails não existe na sidebar — removida referência
+    var badge = document.getElementById('gmailOkBadge');
+    if (badge) badge.style.display = 'inline-block';
   };
+})();
 
-  // ─────────────────────────────────────────────────────────────
-  // FIX 8 — carregarInbox: usar inboxList em vez de inboxBody
-  // ─────────────────────────────────────────────────────────────
-  window.carregarInbox = function() {
-    var tb = document.getElementById('inboxList');
-
+// ── CORREÇÃO 4: Botão "Processar Tudo" com auto-cadastro ──
+(function() {
+  var _origProcessar = window.processarEmails;
+  window.processarEmails = function() {
     if (!EMAIL.ok || !EMAIL.token) {
-      if (tb) tb.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📧 Conecte o Gmail para ver publicações.</div>';
+      toast('Conecte o Gmail primeiro', 'orange');
       return;
     }
-
-    window.ativarGmailUI && ativarGmailUI();
-    if (tb) tb.innerHTML = '<div style="text-align:center;padding:14px;color:var(--teal);font-size:13px">⏳ Carregando emails...</div>';
-
-    var q = 'from:publicacoes@impacta.adv.br OR from:publicacoes-diarios@jusbrasil.com.br';
-    fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q=' + encodeURIComponent(q) + '&maxResults=20', {
-      headers: { 'Authorization': 'Bearer ' + EMAIL.token }
-    })
-    .then(function(r) {
-      if (r.status === 401) {
-        DB.save('lex_gmail_auth', null);
-        EMAIL.ok = false;
-        EMAIL.token = '';
-        if (tb) tb.innerHTML = '<div style="text-align:center;padding:14px;color:var(--red);font-size:13px">⚠️ Token expirado — clique em Conectar Gmail novamente.</div>';
-        return null;
-      }
-      return r.json();
-    })
-    .then(function(d) {
-      if (!d) return;
-      if (!d.messages || !d.messages.length) {
-        if (tb) tb.innerHTML = '<div style="text-align:center;padding:14px;color:var(--text3);font-size:13px">📭 Nenhuma publicação encontrada.</div>';
-        return;
-      }
-      window._fetchGmailList(d.messages.slice(0, 15));
-    })
-    .catch(function(e) {
-      if (tb) tb.innerHTML = '<div style="text-align:center;padding:14px;color:var(--red);font-size:13px">❌ ' + e.message + '</div>';
+    var msgs = EMAIL._gmailMsgs;
+    if (!msgs || !msgs.length) {
+      toast('Carregue a caixa de entrada primeiro (↻)', 'blue');
+      return;
+    }
+    eLog('Processando ' + msgs.length + ' e-mails em lote...', 'teal');
+    var processados = 0;
+    msgs.forEach(function(m, i) {
+      setTimeout(function() {
+        fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + m.id + '?format=full', {
+          headers: { 'Authorization': 'Bearer ' + EMAIL.token }
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(msg) {
+          var body = '';
+          function xb(p) {
+            if (!p) return;
+            if (p.mimeType === 'text/plain' && p.body && p.body.data) {
+              try { body = atob(p.body.data.replace(/-/g, '+').replace(/_/g, '/')); } catch(e) {}
+            }
+            if (p.parts) p.parts.forEach(xb);
+          }
+          xb(msg.payload || {});
+          autoCadastrarDoEmail(body, m);
+          processados++;
+          if (processados === msgs.length) {
+            eKPI();
+            toast('✅ ' + processados + ' e-mails processados! Clientes e processos atualizados.', 'green');
+          }
+        })
+        .catch(function() { processados++; });
+      }, i * 400);
     });
   };
+})();
 
-  // ─────────────────────────────────────────────────────────────
-  // Inicialização: re-executar preencherRespSel com o fix aplicado
-  // ─────────────────────────────────────────────────────────────
-  document.addEventListener('DOMContentLoaded', function() {
-    setTimeout(function() {
-      preencherRespSel();
-    }, 200);
-  });
+// ── CORREÇÃO 5: Auto-sync periódico ao conectar ──
+(function() {
+  var _origAtivar = window.ativarGmailUI;
+  window.ativarGmailUI = function() {
+    if (_origAtivar) _origAtivar();
+    // Inicia sincronização automática conforme configuração
+    if (EMAIL._syncTimer) clearInterval(EMAIL._syncTimer);
+    var intervalo = (EMAIL.cfg.intervalo || 15) * 60 * 1000;
+    EMAIL._syncTimer = setInterval(function() {
+      if (EMAIL.ok && EMAIL.token) {
+        eLog('Auto-sync iniciado...', 'teal');
+        carregarInbox();
+      }
+    }, intervalo);
+    eLog('Auto-sync ativo: a cada ' + (EMAIL.cfg.intervalo || 15) + ' min', 'ok');
+  };
+})();
 
-  console.log('[LexOffice Fixes] ✅ 8 correções aplicadas com sucesso.');
-
+// Inicialização
+(function() {
+  if (typeof eLog === 'function') {
+    eLog('lexoffice-fixes.js v2.0 carregado — Ver, Auto-cadastro e Auto-extração ativos', 'ok');
+  }
 })();
