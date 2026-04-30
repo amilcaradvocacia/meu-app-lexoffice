@@ -1,637 +1,511 @@
 // ================================================================
-// LexOffice FIXES v4.0 — Sistema completo de correções
-// Corrige: Dashboard, Ver Email, Auto-cadastro, Busca, IA, Prazos
+// LexOffice FIXES v5.0 — Correção cirúrgica de bugs confirmados
+// BUG1: Dashboard "0 Processos" — KPI hardcoded nunca atualiza
+// BUG2: Botão VER não abre — conflito inboxList vs inboxBody
 // ================================================================
 
-// ── ESPERA O DOM carregar antes de aplicar correções ──
-(function waitReady() {
+(function() {
+  function init() {
+    fix_dashboard_kpis();
+    fix_ver_email();
+    fix_render_inbox();
+    fix_processar_tudo();
+    fix_parse_manual();
+    fix_auto_cadastro_xls();
+    fix_busca_debounce();
+    fix_autosync();
+    if (typeof eLog === 'function') eLog('✅ Fixes v5.0 carregados', 'ok');
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyAllFixes);
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(init, 900); });
   } else {
-    setTimeout(applyAllFixes, 800);
+    setTimeout(init, 900);
   }
 })();
 
-function applyAllFixes() {
-  fixDashboard();
-  fixEmailVer();
-  fixProcessarTudo();
-  fixParseEmail();
-  fixBuscaProcessos();
-  fixAutoSync();
-  fixIAIntegracao();
-  fixPrazosRender();
-  log('✅ LexOffice Fixes v4.0 aplicados com sucesso', 'ok');
-}
+// ══════════════════════════════════════════
+// FIX 1 — DASHBOARD: lê XLS real
+// ══════════════════════════════════════════
+function fix_dashboard_kpis() {
 
-// ── SAFE LOG ──
-function log(msg, tipo) {
-  if (typeof eLog === 'function') {
-    eLog(msg, tipo || 'info');
-  } else {
-    console.log('[LEX]', msg);
-  }
-}
+  function atualizar() {
+    // Processos: lê XLS2_DATA ou XLS
+    var nProc = 0;
+    if (typeof XLS2_DATA !== 'undefined' && XLS2_DATA.length) nProc = XLS2_DATA.length;
+    else if (typeof XLS !== 'undefined' && XLS.length) nProc = XLS.length;
 
-// ══════════════════════════════════════════════════════
-// FIX 1: DASHBOARD — métricas reais
-// ══════════════════════════════════════════════════════
-function fixDashboard() {
-  // Atualiza KPIs com dados reais do estado
-  function atualizarDash() {
-    var kc = document.getElementById('kClientes');
-    var totalCli = (typeof S !== 'undefined' && S.clientes) ? S.clientes.filter(function(c){return c.status==='ativo'||c.status==='vip';}).length : 0;
-    if (kc) kc.textContent = totalCli;
+    // Atualiza o card "Processos 2026"
+    var cards = document.querySelectorAll('.kcard.blue .kval');
+    cards.forEach(function(el) {
+      if (nProc > 0) el.textContent = nProc;
+    });
+    // Atualiza badge sidebar
+    var nbProc = document.querySelector('.nitem .nbadge.i');
+    if (nbProc && nProc > 0) nbProc.textContent = nProc;
 
-    var nb = document.getElementById('nbClientes');
-    if (nb) nb.textContent = totalCli;
-
-    var totalProc = (typeof XLS !== 'undefined' ? XLS.length : 0) + (typeof XLS2_DATA !== 'undefined' ? XLS2_DATA.length : 0);
-    var kp = document.getElementById('kProc') || document.querySelector('.kcard.blue .kval');
-    if (kp && totalProc > 0) kp.textContent = totalProc;
+    // Clientes ativos
+    var nCli = 0;
+    if (typeof S !== 'undefined' && S.clientes) {
+      nCli = S.clientes.filter(function(c){ return c.status==='ativo'||c.status==='vip'; }).length;
+    }
+    var kCli = document.getElementById('kClientes');
+    if (kCli && nCli > 0) kCli.textContent = nCli;
+    var nbCli = document.getElementById('nbClientes');
+    if (nbCli && nCli > 0) nbCli.textContent = nCli;
 
     // Prazos urgentes
-    var prazos = (typeof EMAIL !== 'undefined' && EMAIL.prazos) ? EMAIL.prazos : [];
-    var urgentes = prazos.filter(function(p){
-      var d = calcDiasSafe(p.prazo); return typeof d === 'number' && d <= 5;
-    }).length;
-    var kpu = document.querySelector('.kcard.red .kval');
-    if (kpu && urgentes > 0) kpu.textContent = urgentes;
+    var nPraz = 0;
+    if (typeof EMAIL !== 'undefined' && EMAIL.prazos) {
+      nPraz = EMAIL.prazos.filter(function(p){
+        var dias = diasRestantes(p.prazo);
+        return typeof dias === 'number' && dias <= 5;
+      }).length;
+    }
+    var kPraz = document.querySelector('.kcard.red .kval');
+    if (kPraz && nPraz > 0) kPraz.textContent = nPraz;
   }
 
-  // Executa agora e a cada 30s
-  atualizarDash();
-  setInterval(atualizarDash, 30000);
+  // Roda agora e a cada 10s
+  atualizar();
+  setInterval(atualizar, 10000);
 
-  // Vincula botão "Processos" no alerta do dashboard
-  var alertLinks = document.querySelectorAll('.alert-t strong, .alert-t a');
-  alertLinks.forEach(function(el) {
-    if (el.textContent.includes('Processos')) {
-      el.style.cursor = 'pointer';
-      el.style.textDecoration = 'underline';
-      el.addEventListener('click', function() {
-        if (typeof go === 'function') go('processos', null);
-      });
-    }
+  // Também atualiza quando XLS2 terminar de carregar
+  var _origXLS2 = window.XLS2_LOADED;
+  Object.defineProperty(window, 'XLS2_LOADED', {
+    get: function() { return _origXLS2; },
+    set: function(v) { _origXLS2 = v; if (v) setTimeout(atualizar, 200); },
+    configurable: true
   });
 }
 
-// ══════════════════════════════════════════════════════
-// FIX 2: BOTÃO VER — carrega e-mail + extrai + cadastra
-// ══════════════════════════════════════════════════════
-function fixEmailVer() {
+function diasRestantes(prazoStr) {
+  if (!prazoStr) return null;
+  var p = prazoStr.split('/');
+  if (p.length !== 3) return null;
+  try {
+    var d = new Date(parseInt(p[2]), parseInt(p[1])-1, parseInt(p[0]));
+    return Math.ceil((d - new Date()) / 86400000);
+  } catch(e) { return null; }
+}
+
+// ══════════════════════════════════════════
+// FIX 2 — BOTÃO VER: busca corpo real do Gmail
+// ══════════════════════════════════════════
+function fix_ver_email() {
   window.verEmail = function(idx) {
-    var msgs = (typeof EMAIL !== 'undefined') ? EMAIL._gmailMsgs : null;
-    if (!msgs || !msgs[idx]) {
-      toast('E-mail não encontrado', 'orange');
+    if (typeof EMAIL === 'undefined') { alert('Sistema não inicializado'); return; }
+    var msgs = EMAIL._gmailMsgs;
+    if (!msgs || typeof idx === 'undefined' || !msgs[idx]) {
+      if (typeof toast === 'function') toast('E-mail não disponível', 'orange');
       return;
     }
     var m = msgs[idx];
-    log('Abrindo: ' + m.subject, 'info');
 
     if (!EMAIL.token) {
-      toast('Gmail não conectado. Clique em "Conectar Gmail"', 'orange');
+      if (typeof toast === 'function') toast('Gmail não conectado', 'orange');
       return;
     }
+
+    if (typeof eLog === 'function') eLog('Abrindo: ' + (m.subject||'').substring(0,50), 'info');
+
+    // Indicação visual
+    var btn = document.querySelector('[onclick="verEmail('+idx+')"]');
+    if (btn) { btn.textContent = '⏳'; btn.disabled = true; }
 
     fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + m.id + '?format=full', {
       headers: { 'Authorization': 'Bearer ' + EMAIL.token }
     })
     .then(function(r) {
       if (r.status === 401) {
-        EMAIL.ok = false;
-        EMAIL.token = null;
+        EMAIL.ok = false; EMAIL.token = null;
         if (typeof DB !== 'undefined') DB.save('lex_gmail_auth', null);
-        toast('Sessão expirada — reconecte o Gmail', 'orange');
+        if (typeof toast === 'function') toast('Sessão expirada — reconecte o Gmail', 'orange');
+        if (btn) { btn.textContent = '👁 Ver'; btn.disabled = false; }
         return null;
       }
       return r.json();
     })
     .then(function(msg) {
       if (!msg) return;
+      if (btn) { btn.textContent = '👁 Ver'; btn.disabled = false; }
 
-      // Extrai corpo do e-mail (plain text primeiro, HTML como fallback)
+      // Extrai corpo
       var body = '';
-      function extractBody(p) {
-        if (!p) return;
-        if (p.mimeType === 'text/plain' && p.body && p.body.data) {
+      function dig(part) {
+        if (!part) return;
+        if (part.mimeType === 'text/plain' && part.body && part.body.data) {
           try {
-            var dec = atob(p.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-            if (dec.length > body.length) body = dec;
+            var t = atob(part.body.data.replace(/-/g,'+').replace(/_/g,'/'));
+            if (t.length > body.length) body = t;
           } catch(e) {}
         }
-        if (p.mimeType === 'text/html' && p.body && p.body.data && !body) {
+        if (!body && part.mimeType === 'text/html' && part.body && part.body.data) {
           try {
-            var html = atob(p.body.data.replace(/-/g, '+').replace(/_/g, '/'));
-            body = html.replace(/<br\s*\/?>/gi, '\n')
-                       .replace(/<p[^>]*>/gi, '\n')
-                       .replace(/<[^>]+>/g, '')
-                       .replace(/&nbsp;/g, ' ')
-                       .replace(/&amp;/g, '&')
-                       .replace(/&lt;/g, '<')
-                       .replace(/&gt;/g, '>')
-                       .replace(/\s{3,}/g, '\n')
-                       .trim();
+            var h = atob(part.body.data.replace(/-/g,'+').replace(/_/g,'/'));
+            body = h.replace(/<br\s*\/?>/gi,'\n').replace(/<p[^>]*>/gi,'\n')
+                    .replace(/<[^>]+>/g,'').replace(/&nbsp;/g,' ')
+                    .replace(/&amp;/g,'&').replace(/\s{3,}/g,'\n').trim();
           } catch(e) {}
         }
-        if (p.parts) p.parts.forEach(extractBody);
+        if (part.parts) part.parts.forEach(dig);
       }
-      extractBody(msg.payload || {});
+      dig(msg.payload || {});
       if (!body) body = msg.snippet || '';
 
-      // Detecta headers
+      // Detecta remetente
       var hdrs = {};
-      ((msg.payload && msg.payload.headers) || []).forEach(function(h) { hdrs[h.name] = h.value; });
+      ((msg.payload && msg.payload.headers) || []).forEach(function(h){ hdrs[h.name]=h.value; });
       var from = hdrs['From'] || m.from || '';
+      var isJB = from.toLowerCase().indexOf('jusbrasil') >= 0;
 
-      // Preenche o formulário
-      var rem = document.getElementById('emailRem');
-      if (rem) rem.value = from.toLowerCase().indexOf('jusbrasil') >= 0 ? 'jusbrasil' : 'impacta';
+      // Preenche formulário
+      var remEl = document.getElementById('emailRem');
+      if (remEl) remEl.value = isJB ? 'jusbrasil' : 'impacta';
 
-      var bod = document.getElementById('emailBody');
-      if (bod) bod.value = body;
+      var bodEl = document.getElementById('emailBody');
+      if (bodEl) bodEl.value = body;
 
-      log('E-mail carregado (' + body.length + ' chars)', 'teal');
+      if (typeof eLog === 'function') eLog('Corpo carregado (' + body.length + ' chars). Extraindo...', 'teal');
 
-      // Extrai dados e cadastra
+      // Extrai + cadastra
       setTimeout(function() {
-        // Chama parser original
-        if (typeof parseEmailOriginal === 'function') {
-          parseEmailOriginal();
-        } else if (typeof parseEmail === 'function') {
-          parseEmail();
-        }
-        // Auto-cadastro
-        autoCadastrar(body, { subject: m.subject || '', from: from });
-      }, 300);
+        if (typeof parseEmailOriginal === 'function') parseEmailOriginal();
+        else if (typeof parseEmail === 'function') parseEmail();
+        autoCadastrarEmail(body, m.subject || '', from);
+      }, 250);
     })
     .catch(function(e) {
-      log('Erro ao abrir e-mail: ' + e.message, 'err');
-      toast('Erro ao abrir e-mail: ' + e.message, 'orange');
+      if (btn) { btn.textContent = '👁 Ver'; btn.disabled = false; }
+      if (typeof eLog === 'function') eLog('Erro: ' + e.message, 'err');
+      if (typeof toast === 'function') toast('Erro ao abrir e-mail', 'orange');
     });
   };
+}
 
-  // Também corrige _renderGmail para usar verEmail correto
+// ══════════════════════════════════════════
+// FIX 3 — INBOX: renderiza com botão VER correto
+// ══════════════════════════════════════════
+function fix_render_inbox() {
   window._renderGmail = function(msgs) {
-    var il = document.getElementById('inboxList');
-    if (!il) return;
+    // Tenta inboxList (div) primeiro, depois inboxBody (table)
+    var container = document.getElementById('inboxList');
+    var useTable = false;
+    if (!container) {
+      container = document.getElementById('inboxBody');
+      useTable = true;
+    }
+    if (!container) { console.warn('inboxList e inboxBody não encontrados'); return; }
+
     EMAIL._gmailMsgs = msgs;
-    msgs.sort(function(a, b) { return new Date(b.date) - new Date(a.date); });
+    msgs.sort(function(a,b){ return new Date(b.date)-new Date(a.date); });
 
     if (!msgs.length) {
-      il.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📭 Nenhuma publicação encontrada.</div>';
+      if (useTable) {
+        container.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:18px;color:var(--text3)">📭 Nenhuma publicação.</td></tr>';
+      } else {
+        container.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📭 Nenhuma publicação encontrada.</div>';
+      }
       return;
     }
 
-    il.innerHTML = msgs.map(function(m, i) {
-      var isJB = (m.from || '').toLowerCase().indexOf('jusbrasil') >= 0;
-      var cor = isJB ? 'bo' : 'bteal';
-      var fonte = isJB ? 'JusBrasil' : 'Impacta';
-      var d = new Date(m.date);
-      var ds = isNaN(d.getTime()) ? (m.date || '') : d.toLocaleDateString('pt-BR');
-      var snip = (m.snippet || '').substring(0, 80);
-      return '<div style="display:flex;align-items:flex-start;gap:9px;padding:10px 14px;border-bottom:1px solid var(--border);transition:background .15s" onmouseover="this.style.background=\'var(--surface2)\'" onmouseout="this.style.background=\'\'">'
-        + '<span class="badge ' + cor + '" style="font-size:10px;flex-shrink:0;margin-top:2px">' + fonte + '</span>'
-        + '<div style="flex:1;min-width:0;cursor:pointer" onclick="window._abrirGmail(' + i + ')">'
-        + '<div style="font-size:12.5px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (m.subject || '(sem assunto)') + '</div>'
-        + '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">' + ds + ' — ' + snip + '</div>'
-        + '</div>'
-        + '<button class="btn btn-teal btn-xs" style="flex-shrink:0;white-space:nowrap" onclick="window.verEmail(' + i + ')">👁 Ver</button>'
-        + '</div>';
-    }).join('');
+    if (useTable) {
+      // Renderiza como linhas de tabela
+      container.innerHTML = msgs.map(function(m, i) {
+        var isJB = (m.from||'').toLowerCase().indexOf('jusbrasil') >= 0;
+        var cor = isJB ? 'bo' : 'bteal';
+        var fonte = isJB ? 'JusBrasil' : 'Impacta';
+        var d = new Date(m.date);
+        var ds = isNaN(d.getTime()) ? (m.date||'') : d.toLocaleDateString('pt-BR');
+        return '<tr>'
+          + '<td class="tpl"><span class="badge '+cor+'" style="font-size:10px">'+fonte+'</span></td>'
+          + '<td style="font-size:12px;max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(m.subject||'')+'</td>'
+          + '<td style="font-size:11px;color:var(--text3)">'+ds+'</td>'
+          + '<td style="font-size:11px;color:var(--text2);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(m.snippet||'').substring(0,80)+'</td>'
+          + '<td class="tpr"><button class="btn btn-teal btn-xs" onclick="verEmail('+i+')">👁 Ver</button></td>'
+          + '</tr>';
+      }).join('');
+    } else {
+      // Renderiza como divs
+      container.innerHTML = msgs.map(function(m, i) {
+        var isJB = (m.from||'').toLowerCase().indexOf('jusbrasil') >= 0;
+        var cor = isJB ? 'bo' : 'bteal';
+        var fonte = isJB ? 'JusBrasil' : 'Impacta';
+        var d = new Date(m.date);
+        var ds = isNaN(d.getTime()) ? (m.date||'') : d.toLocaleDateString('pt-BR');
+        return '<div style="display:flex;align-items:flex-start;gap:9px;padding:10px 14px;border-bottom:1px solid var(--border)">'
+          + '<span class="badge '+cor+'" style="font-size:10px;flex-shrink:0;margin-top:2px">'+fonte+'</span>'
+          + '<div style="flex:1;min-width:0;cursor:pointer" onclick="window._abrirGmail('+i+')">'
+          + '<div style="font-size:12.5px;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+(m.subject||'(sem assunto)')+'</div>'
+          + '<div style="font-size:10.5px;color:var(--text3);margin-top:2px">'+ds+' — '+(m.snippet||'').substring(0,80)+'</div>'
+          + '</div>'
+          + '<button class="btn btn-teal btn-xs" style="flex-shrink:0" onclick="verEmail('+i+')">👁 Ver</button>'
+          + '</div>';
+      }).join('');
+    }
 
     var badge = document.getElementById('gmailOkBadge');
     if (badge) badge.style.display = 'inline-block';
   };
 }
 
-// ══════════════════════════════════════════════════════
-// FIX 3: AUTO-CADASTRO de Cliente e Processo
-// ══════════════════════════════════════════════════════
-function autoCadastrar(corpo, meta) {
-  if (!corpo) return;
-  var assunto = (meta && meta.subject) || '';
-  var from = (meta && meta.from) || '';
-  var fonteId = from.toLowerCase().indexOf('jusbrasil') >= 0 ? 'jusbrasil' : 'impacta';
+// ══════════════════════════════════════════
+// FIX 4 — AUTO-CADASTRO de clientes
+// ══════════════════════════════════════════
+function autoCadastrarEmail(corpo, assunto, from) {
+  if (!corpo || typeof S === 'undefined') return;
 
-  // Extrai dados estruturados
+  var isJB = (from||'').toLowerCase().indexOf('jusbrasil') >= 0;
+  var fonteId = isJB ? 'jusbrasil' : 'impacta';
   var d = (typeof extrairDados === 'function') ? extrairDados(corpo, fonteId) : null;
-  if (!d) return;
 
-  // ── Encontra nome do cliente ──
+  // Encontra nome do cliente em cascata
   var clienteNome = '';
 
-  // Método 1: campo "Partes:" do corpo
-  if (d.partes) {
+  // 1. Campo Partes: no corpo
+  if (d && d.partes) {
     var px = d.partes.split(/\s+[xX×]\s+/);
     if (px[0] && px[0].trim().length > 3) clienteNome = px[0].trim();
   }
 
-  // Método 2: assunto "– NOME SOBRENOME –"
+  // 2. Assunto "– NOME COMPLETO –"
   if (!clienteNome && assunto) {
-    var matches = assunto.match(/[–\-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜ][A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜa-záéíóúâêôãõçàü\s]{3,}?)\s*[–\-]/);
-    if (matches && matches[1]) clienteNome = matches[1].trim();
+    var m1 = assunto.match(/[–\-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜ][A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜa-záéíóúâêôãõçàü\s]{3,}?)\s*[–\-]/);
+    if (m1 && m1[1] && m1[1].trim().length > 3) clienteNome = m1[1].trim();
   }
 
-  // Método 3: assunto "IPRAZOS – NOME"
+  // 3. "Iprazos – NOME"
   if (!clienteNome && assunto) {
-    var m2 = assunto.match(/(?:IPRAZOS|Iprazos)[^A-Z]*[–\-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜ][A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜa-záéíóúâêôãõçàü\s]{3,}?)(?:\s*[–\-]|$)/);
-    if (m2 && m2[1]) clienteNome = m2[1].trim();
+    var m2 = assunto.match(/[Ii]prazos\s*[–\-]\s*([A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜ][A-ZÁÉÍÓÚÂÊÔÃÕÇÀÜa-záéíóúâêôãõçàü\s]{3,}?)(?:\s*[–\-]|$)/);
+    if (m2 && m2[1] && m2[1].trim().length > 3) clienteNome = m2[1].trim();
   }
 
-  // Método 4: cruza pelo CNJ no XLS
-  if (!clienteNome && d.cnjs && d.cnjs.length && typeof XLS !== 'undefined') {
-    var cnjNum = d.cnjs[0].replace(/[^0-9]/g, '').substring(0, 13);
-    var xr = XLS.find(function(r) {
-      return r.processo && r.processo.replace(/[^0-9]/g, '').indexOf(cnjNum) >= 0;
-    });
+  // 4. Cruzamento CNJ no XLS
+  if (!clienteNome && d && d.cnjs && d.cnjs.length && typeof XLS !== 'undefined') {
+    var num = d.cnjs[0].replace(/[^0-9]/g,'').substring(0,13);
+    var xr = XLS.find(function(r){ return r.processo && r.processo.replace(/[^0-9]/g,'').indexOf(num) >= 0; });
     if (xr && xr.parte1) clienteNome = xr.parte1;
   }
 
-  // ── Cadastra cliente se encontrado ──
-  if (clienteNome && clienteNome.length > 3 && typeof S !== 'undefined') {
-    var norm = clienteNome.trim().toUpperCase().replace(/\s+/g, ' ');
-    var existe = S.clientes.find(function(c) {
-      var cn = c.nome.toUpperCase().replace(/\s+/g, ' ');
-      return cn === norm || (norm.length > 8 && cn.indexOf(norm.substring(0, 8)) >= 0);
-    });
-
-    if (!existe) {
-      // Encontra adverso
-      var adverso = '';
-      if (d.partes) {
-        var padv = d.partes.split(/\s+[xX×]\s+/);
-        adverso = (padv[1] || '').trim();
-      }
-      if (!adverso && d.cnjs && d.cnjs.length && typeof XLS !== 'undefined') {
-        var xrAdv = XLS.find(function(r) {
-          return r.processo && r.processo.replace(/[^0-9]/g,'').indexOf(d.cnjs[0].replace(/[^0-9]/g,'').substring(0,13)) >= 0;
-        });
-        if (xrAdv) adverso = xrAdv.ex_adverso || '';
-      }
-
-      var area = detectArea(d.mov || '');
-      var novoC = {
-        id: S.nextCid++,
-        nome: clienteNome.trim(),
-        cpfcnpj: '', email: '', tel: '',
-        area: area, tipo: 'PF', status: 'ativo', resp: S.uidAtivo || 1,
-        exadverso: adverso,
-        endereco: d.vara || '',
-        obs: 'Auto-cadastrado via publicação ' + new Date().toLocaleDateString('pt-BR') + '. CNJ: ' + (d.cnjs && d.cnjs[0] ? d.cnjs[0] : 'N/A')
-      };
-      S.clientes.push(novoC);
-      S.cFiltrados = [].concat(S.clientes);
-      if (typeof renderKPIClientes === 'function') renderKPIClientes();
-      if (typeof renderClientes === 'function') renderClientes();
-      log('👤 Cliente cadastrado: ' + clienteNome.trim(), 'ok');
-      if (typeof toast === 'function') toast('👤 Novo cliente: ' + clienteNome.trim(), 'teal');
-
-      // Atualiza badge
-      var nb = document.getElementById('nbClientes');
-      if (nb) nb.textContent = S.clientes.length;
-    } else {
-      log('Cliente já existe: ' + existe.nome, 'info');
-    }
+  if (!clienteNome || clienteNome.length < 4) {
+    if (typeof eLog === 'function') eLog('⚠️ Nome do cliente não detectado', 'warn');
+    return;
   }
 
-  // ── Registra CNJ para deduplicação ──
-  if (fonteId === 'impacta' && d.cnjs) {
-    d.cnjs.forEach(function(c) {
-      if (typeof EMAIL !== 'undefined') EMAIL.cnjs_impacta[c] = true;
-    });
+  // Verifica se já existe
+  var norm = clienteNome.trim().toUpperCase().replace(/\s+/g,' ');
+  var existe = S.clientes.find(function(c){
+    var cn = c.nome.toUpperCase().replace(/\s+/g,' ');
+    return cn === norm || (norm.length > 8 && cn.indexOf(norm.substring(0,8)) >= 0);
+  });
+
+  if (existe) {
+    if (typeof eLog === 'function') eLog('Cliente já existe: ' + existe.nome, 'info');
+    return;
   }
 
-  // ── Cria prazo automaticamente ──
-  if (d.prazo && typeof criarPrazoInterno === 'function') {
-    criarPrazoInterno(d);
+  // Adverso
+  var adverso = '';
+  if (d && d.partes) {
+    var padv = d.partes.split(/\s+[xX×]\s+/);
+    adverso = (padv[1]||'').trim();
+  }
+  if (!adverso && d && d.cnjs && d.cnjs.length && typeof XLS !== 'undefined') {
+    var num2 = d.cnjs[0].replace(/[^0-9]/g,'').substring(0,13);
+    var xrA = XLS.find(function(r){ return r.processo && r.processo.replace(/[^0-9]/g,'').indexOf(num2) >= 0; });
+    if (xrA) adverso = xrA.ex_adverso || '';
   }
 
-  // ── Cria tarefa ──
-  if (typeof EMAIL !== 'undefined' && EMAIL.cfg && EMAIL.cfg.autoTarefa && typeof criarTarefaInterno === 'function') {
-    criarTarefaInterno(d);
+  // Área
+  var area = 'Cível';
+  var mov = (d && d.mov) ? d.mov.toUpperCase() : '';
+  if (mov.indexOf('TRABALH') >= 0 || mov.indexOf('TRT') >= 0) area = 'Trabalhista';
+  else if (mov.indexOf('PENAL') >= 0 || mov.indexOf('CRIMIN') >= 0) area = 'Penal';
+  else if (mov.indexOf('FAM') >= 0 || mov.indexOf('DIV') >= 0) area = 'Família';
+  else if (mov.indexOf('TRIBUT') >= 0) area = 'Tributário';
+
+  S.clientes.push({
+    id: S.nextCid++,
+    nome: clienteNome.trim(),
+    cpfcnpj: '', email: '', tel: '',
+    area: area, tipo: 'PF', status: 'ativo', resp: S.uidAtivo || 1,
+    exadverso: adverso,
+    endereco: (d && d.vara) ? d.vara : '',
+    obs: 'Auto via publicação ' + new Date().toLocaleDateString('pt-BR') + (d && d.cnjs && d.cnjs[0] ? ' | CNJ: '+d.cnjs[0] : '')
+  });
+  S.cFiltrados = [].concat(S.clientes);
+
+  if (typeof renderKPIClientes === 'function') renderKPIClientes();
+  var nb = document.getElementById('nbClientes');
+  if (nb) nb.textContent = S.clientes.length;
+
+  if (typeof eLog === 'function') eLog('👤 Cliente cadastrado: ' + clienteNome.trim(), 'ok');
+  if (typeof toast === 'function') toast('👤 ' + clienteNome.trim(), 'teal');
+
+  // Registra CNJ para deduplicação Impacta
+  if (fonteId === 'impacta' && d && d.cnjs) {
+    d.cnjs.forEach(function(c){ if(typeof EMAIL!=='undefined') EMAIL.cnjs_impacta[c]=true; });
   }
+
+  // Prazo automático
+  if (d && d.prazo && typeof criarPrazoInterno === 'function') criarPrazoInterno(d);
 
   if (typeof eKPI === 'function') eKPI();
 }
 
-function detectArea(mov) {
-  var m = (mov || '').toUpperCase();
-  if (m.indexOf('TRABALH') >= 0 || m.indexOf('TRT') >= 0 || m.indexOf('JCJ') >= 0) return 'Trabalhista';
-  if (m.indexOf('PENAL') >= 0 || m.indexOf('CRIMIN') >= 0) return 'Penal';
-  if (m.indexOf('FAM') >= 0 || m.indexOf('DIV') >= 0 || m.indexOf('ALIMEN') >= 0) return 'Família';
-  if (m.indexOf('TRIBUT') >= 0 || m.indexOf('FISCAL') >= 0 || m.indexOf('EXECUÇ') >= 0) return 'Tributário';
-  if (m.indexOf('EMPRESA') >= 0 || m.indexOf('FALÊNC') >= 0) return 'Empresarial';
-  return 'Cível';
-}
-
-// ══════════════════════════════════════════════════════
-// FIX 4: PROCESSAR TUDO com auto-cadastro real
-// ══════════════════════════════════════════════════════
-function fixProcessarTudo() {
+// ══════════════════════════════════════════
+// FIX 5 — PROCESSAR TUDO
+// ══════════════════════════════════════════
+function fix_processar_tudo() {
   window.processarEmails = function() {
     if (typeof EMAIL === 'undefined' || !EMAIL.ok || !EMAIL.token) {
-      if (typeof toast === 'function') toast('Conecte o Gmail primeiro', 'orange');
-      return;
+      if (typeof toast === 'function') toast('Conecte o Gmail primeiro', 'orange'); return;
     }
     var msgs = EMAIL._gmailMsgs;
     if (!msgs || !msgs.length) {
-      if (typeof toast === 'function') toast('Clique em ↻ para carregar a caixa de entrada primeiro', 'blue');
-      return;
+      if (typeof toast === 'function') toast('Carregue a caixa de entrada (↻) primeiro', 'blue'); return;
     }
-    log('Processando ' + msgs.length + ' e-mails em lote...', 'teal');
+    if (typeof eLog === 'function') eLog('Processando ' + msgs.length + ' e-mails...', 'teal');
     var done = 0;
-    var total = msgs.length;
-
     msgs.forEach(function(m, i) {
       setTimeout(function() {
-        fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/' + m.id + '?format=full', {
-          headers: { 'Authorization': 'Bearer ' + EMAIL.token }
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(msg) {
+        fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=full', {
+          headers: {'Authorization':'Bearer '+EMAIL.token}
+        }).then(function(r){return r.json();}).then(function(msg){
           var body = '';
-          function xb(p) {
-            if (!p) return;
-            if (p.mimeType === 'text/plain' && p.body && p.body.data) {
-              try { var t = atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/')); if(t.length>body.length) body=t; } catch(e){}
-            }
-            if (!body && p.mimeType === 'text/html' && p.body && p.body.data) {
-              try { body = atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/')).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim(); } catch(e){}
-            }
-            if (p.parts) p.parts.forEach(xb);
+          function xb(p){
+            if(!p)return;
+            if(p.mimeType==='text/plain'&&p.body&&p.body.data){try{var t=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'));if(t.length>body.length)body=t;}catch(e){}}
+            if(!body&&p.mimeType==='text/html'&&p.body&&p.body.data){try{body=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/')).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();}catch(e){}}
+            if(p.parts)p.parts.forEach(xb);
           }
-          xb(msg.payload || {});
-          if (!body) body = msg.snippet || '';
-          autoCadastrar(body, { subject: m.subject || '', from: m.from || '' });
-          log('✓ ' + (m.subject || 'email').substring(0, 45), 'ok');
+          xb(msg.payload||{});
+          if(!body) body = m.snippet||'';
+          autoCadastrarEmail(body, m.subject||'', m.from||'');
           done++;
-          if (done >= total) {
-            if (typeof eKPI === 'function') eKPI();
-            if (typeof toast === 'function') toast('✅ ' + done + ' e-mails processados!', 'green');
+          if(done>=msgs.length){
+            if(typeof eKPI==='function') eKPI();
+            if(typeof toast==='function') toast('✅ '+done+' e-mails processados!','green');
           }
-        })
-        .catch(function(e) { done++; log('Erro: ' + e.message, 'warn'); });
-      }, i * 600);
+        }).catch(function(){done++;});
+      }, i*600);
     });
   };
 }
 
-// ══════════════════════════════════════════════════════
-// FIX 5: PARSE EMAIL manual também aciona auto-cadastro
-// ══════════════════════════════════════════════════════
-function fixParseEmail() {
-  // Guarda o original
+// ══════════════════════════════════════════
+// FIX 6 — PARSE MANUAL aciona auto-cadastro
+// ══════════════════════════════════════════
+function fix_parse_manual() {
   if (typeof window.parseEmail === 'function') {
     window.parseEmailOriginal = window.parseEmail;
   }
-
   window.parseEmail = function() {
-    // Chama original
-    if (typeof window.parseEmailOriginal === 'function') {
-      window.parseEmailOriginal();
-    }
-    // Auto-cadastro com o texto colado
+    if (typeof window.parseEmailOriginal === 'function') window.parseEmailOriginal();
     setTimeout(function() {
       var corpo = document.getElementById('emailBody') ? document.getElementById('emailBody').value : '';
-      var rem = document.getElementById('emailRem') ? document.getElementById('emailRem').value : 'impacta';
+      var rem   = document.getElementById('emailRem')  ? document.getElementById('emailRem').value  : 'impacta';
       if (corpo && corpo.trim().length > 10) {
-        autoCadastrar(corpo, {
-          subject: '',
-          from: rem === 'jusbrasil' ? 'jusbrasil.com.br' : 'impacta.adv.br'
-        });
+        autoCadastrarEmail(corpo, '', rem==='jusbrasil'?'jusbrasil.com.br':'impacta.adv.br');
       }
     }, 500);
   };
 }
 
-// ══════════════════════════════════════════════════════
-// FIX 6: BUSCA DE PROCESSOS melhorada
-// ══════════════════════════════════════════════════════
-function fixBuscaProcessos() {
-  var searchEl = document.getElementById('searchProc');
-  if (!searchEl) return;
+// ══════════════════════════════════════════
+// FIX 7 — SINCRONIZAR clientes com XLS
+// ══════════════════════════════════════════
+function fix_auto_cadastro_xls() {
+  window.sincronizarClientesXLS = function() {
+    if (typeof XLS === 'undefined' || !XLS.length || typeof S === 'undefined') {
+      if (typeof toast === 'function') toast('XLS não carregado ainda', 'orange'); return;
+    }
+    var add = 0;
+    var existentes = S.clientes.map(function(c){ return c.nome.toUpperCase().replace(/\s+/g,' '); });
+    var ignorar = ['DOCUMENTOS','JUSTIÇA','FEDERAL','ESTADO','MUNICÍPIO','MINISTÉRIO','SINDIC','INQUÉR','BOLETIM','CONTRATOS'];
 
-  // Remove listener antigo e adiciona novo com debounce
-  var debTimer;
-  searchEl.oninput = null;
-  searchEl.addEventListener('input', function() {
-    clearTimeout(debTimer);
-    debTimer = setTimeout(function() {
-      var q = searchEl.value.toLowerCase().trim();
-      if (typeof filtrarProcessos === 'function') {
-        filtrarProcessos();
-        return;
-      }
-      // Fallback manual
-      var src = (typeof XLS2_DATA !== 'undefined' && XLS2_DATA.length) ? XLS2_DATA
-              : (typeof XLS !== 'undefined' ? XLS.map(function(r){return [r.ficha,r.acao,r.processo,r.vara,'',r.parte1,r.ex_adverso,r.parte1,'AUTOR',r.ex_adverso];}) : []);
-      if (!q) {
-        if (typeof S !== 'undefined') S.procFiltrados = src.slice();
-      } else {
-        if (typeof S !== 'undefined') S.procFiltrados = src.filter(function(r){
-          return r.some(function(cell){ return cell && cell.toString().toLowerCase().indexOf(q) >= 0; });
-        });
-      }
-      if (typeof S !== 'undefined') S.procPag = 0;
-      if (typeof renderProcTable === 'function') renderProcTable();
-    }, 300);
+    XLS.forEach(function(r) {
+      var nome = (r.parte1||'').trim();
+      if (!nome || nome.length < 4 || /^\d/.test(nome)) return;
+      if (ignorar.some(function(k){ return nome.toUpperCase().indexOf(k) >= 0; })) return;
+      var norm = nome.toUpperCase().replace(/\s+/g,' ');
+      if (existentes.indexOf(norm) >= 0) return;
+
+      var ac = (r.acao||'').toUpperCase();
+      var area = ac.indexOf('TRABALH')>=0||ac.indexOf('JCJ')>=0?'Trabalhista'
+        :ac.indexOf('PENAL')>=0?'Penal'
+        :ac.indexOf('FAM')>=0||ac.indexOf('DIV')>=0?'Família'
+        :ac.indexOf('TRIBUT')>=0?'Tributário':'Cível';
+
+      S.clientes.push({
+        id:S.nextCid++,nome:nome,cpfcnpj:'',email:'',tel:'',
+        area:area,tipo:'PF',status:'ativo',resp:1,
+        exadverso:r.ex_adverso||'',endereco:r.vara||'',
+        obs:'Importado do XLS — ficha '+(r.ficha||'N/A')
+      });
+      existentes.push(norm);
+      add++;
+    });
+
+    S.cFiltrados = [].concat(S.clientes);
+    if (typeof renderKPIClientes === 'function') renderKPIClientes();
+    var nb = document.getElementById('nbClientes');
+    if (nb) nb.textContent = S.clientes.length;
+    if (typeof toast === 'function') toast(add > 0 ? '✅ '+add+' clientes sincronizados!' : 'Nenhum cliente novo no XLS','teal');
+    if (typeof eLog === 'function') eLog(add+' clientes adicionados do XLS','ok');
+  };
+
+  // Adiciona botão na aba Clientes
+  setTimeout(function() {
+    var ta = document.querySelector('#pg-clientes .topbar-actions');
+    if (ta && !document.getElementById('btnSyncXLS')) {
+      var b = document.createElement('button');
+      b.id = 'btnSyncXLS'; b.className = 'btn btn-teal';
+      b.innerHTML = '🔄 Sincronizar Processos→Clientes';
+      b.onclick = window.sincronizarClientesXLS;
+      ta.insertBefore(b, ta.firstChild);
+    }
+  }, 1200);
+}
+
+// ══════════════════════════════════════════
+// FIX 8 — BUSCA com debounce
+// ══════════════════════════════════════════
+function fix_busca_debounce() {
+  var el = document.getElementById('searchProc');
+  if (!el) return;
+  var t;
+  el.oninput = null;
+  el.addEventListener('input', function() {
+    clearTimeout(t);
+    t = setTimeout(function() {
+      if (typeof filtrarProcessos === 'function') filtrarProcessos();
+    }, 280);
   });
 }
 
-// ══════════════════════════════════════════════════════
-// FIX 7: IA — parseEmailIA usa Claude API
-// ══════════════════════════════════════════════════════
-function fixIAIntegracao() {
-  window.parseEmailIA = function() {
-    var corpo = document.getElementById('emailBody') ? document.getElementById('emailBody').value.trim() : '';
-    if (!corpo) {
-      if (typeof toast === 'function') toast('Cole o conteúdo do e-mail primeiro', 'orange');
-      return;
-    }
-    if (typeof eLog === 'function') eLog('🤖 IA analisando...', 'teal');
-
-    fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 800,
-        messages: [{
-          role: 'user',
-          content: 'Analise este e-mail de publicação judicial brasileiro e extraia APENAS um JSON com: cnj (número CNJ), cliente (nome do cliente/autor), adverso (parte contrária), movimentacao, prazo (dd/mm/aaaa), vara, tribunal, tipo_acao, dias_prazo (número inteiro).\n\nE-mail:\n' + corpo.substring(0, 3000) + '\n\nResponda SOMENTE com JSON válido, sem texto adicional.'
-        }]
-      })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(data) {
-      var text = (data.content && data.content[0] && data.content[0].text) || '{}';
-      var clean = text.replace(/```json|```/g, '').trim();
-      var parsed;
-      try { parsed = JSON.parse(clean); } catch(e) { parsed = null; }
-
-      if (parsed) {
-        // Preenche campos do formulário com dados da IA
-        var bod = document.getElementById('emailBody');
-        if (bod && !bod.value) bod.value = corpo;
-
-        // Mostra resultado
-        var card = document.getElementById('parserCard');
-        var campos = document.getElementById('parserCampos');
-        var src = document.getElementById('parserSrc');
-        if (src) src.textContent = '🤖 Claude IA';
-        if (campos) {
-          var rows = Object.entries(parsed).filter(function(kv){ return kv[1]; });
-          campos.innerHTML = rows.map(function(kv) {
-            var icons = {cnj:'⚖️',cliente:'👤',adverso:'⚔️',movimentacao:'📋',prazo:'⏳',vara:'🏛️',tribunal:'⚖️',tipo_acao:'📄',dias_prazo:'📅'};
-            return '<div style="display:flex;gap:11px;padding:8px 0;border-bottom:1px solid var(--border)">'
-              + '<div style="font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;width:140px;flex-shrink:0;padding-top:2px">' + (icons[kv[0]]||'•') + ' ' + kv[0] + '</div>'
-              + '<div style="font-size:13px;color:var(--teal);font-weight:500">' + kv[1] + '</div></div>';
-          }).join('');
-        }
-        if (card) card.style.display = 'block';
-
-        // Registra extração
-        EMAIL._extracao = {
-          cnjs: parsed.cnj ? [parsed.cnj] : [],
-          partes: (parsed.cliente || '') + (parsed.adverso ? ' x ' + parsed.adverso : ''),
-          mov: parsed.movimentacao || '',
-          prazo: parsed.prazo || '',
-          vara: parsed.vara || '',
-          fonte: 'impacta',
-          raw: corpo
-        };
-
-        if (typeof eLog === 'function') eLog('✅ IA extraiu dados com sucesso', 'ok');
-        if (typeof toast === 'function') toast('🤖 IA analisou o e-mail com sucesso!', 'teal');
-
-        // Auto-cadastro com dados da IA
-        if (parsed.cliente) {
-          autoCadastrar(corpo, { subject: parsed.cliente, from: 'impacta.adv.br' });
-        }
-      } else {
-        if (typeof eLog === 'function') eLog('⚠️ IA não retornou JSON válido', 'warn');
-        // Fallback para parser manual
-        if (typeof parseEmailOriginal === 'function') parseEmailOriginal();
-        else if (typeof parseEmail === 'function') parseEmail();
-      }
-    })
-    .catch(function(e) {
-      if (typeof eLog === 'function') eLog('Erro IA: ' + e.message, 'err');
-      // Fallback
-      if (typeof parseEmailOriginal === 'function') parseEmailOriginal();
-      else if (typeof parseEmail === 'function') parseEmail();
-    });
-  };
-}
-
-// ══════════════════════════════════════════════════════
-// FIX 8: PRAZOS — renderização e cálculo corretos
-// ══════════════════════════════════════════════════════
-function fixPrazosRender() {
-  window.calcDiasSafe = function(prazoStr) {
-    if (!prazoStr) return '?';
-    var p = prazoStr.split('/');
-    if (p.length !== 3) return '?';
-    try {
-      var d = new Date(parseInt(p[2]), parseInt(p[1]) - 1, parseInt(p[0]));
-      var diff = Math.ceil((d - new Date()) / 86400000);
-      return diff >= 0 ? diff : 0;
-    } catch(e) { return '?'; }
-  };
-
-  // Substitui calcDias se existir
-  if (typeof calcDias !== 'undefined') {
-    window.calcDias = window.calcDiasSafe;
-  }
-}
-
-// ══════════════════════════════════════════════════════
-// FIX 9: AUTO-SYNC periódico ao conectar Gmail
-// ══════════════════════════════════════════════════════
-function fixAutoSync() {
-  var _origAtivar = window.ativarGmailUI;
+// ══════════════════════════════════════════
+// FIX 9 — AUTO-SYNC ao conectar Gmail
+// ══════════════════════════════════════════
+function fix_autosync() {
+  var _orig = window.ativarGmailUI;
   window.ativarGmailUI = function() {
-    if (_origAtivar) _origAtivar();
+    if (_orig) _orig();
     if (typeof EMAIL === 'undefined') return;
     if (EMAIL._syncTimer) clearInterval(EMAIL._syncTimer);
     var min = (EMAIL.cfg && EMAIL.cfg.intervalo) || 15;
     EMAIL._syncTimer = setInterval(function() {
       if (EMAIL.ok && EMAIL.token && typeof carregarInbox === 'function') {
-        log('Auto-sync (' + min + 'min)...', 'teal');
+        if (typeof eLog === 'function') eLog('Auto-sync ('+min+'min)...','teal');
         carregarInbox();
       }
-    }, min * 60 * 1000);
-    log('Auto-sync ativo a cada ' + min + ' minuto(s)', 'ok');
+    }, min * 60000);
+    if (typeof eLog === 'function') eLog('Auto-sync ativo a cada '+min+' min','ok');
   };
-
-  // Se já estava conectado quando o script carregou
+  // Se já conectado
   setTimeout(function() {
-    if (typeof EMAIL !== 'undefined' && EMAIL.ok && EMAIL.token && typeof ativarGmailUI === 'function') {
-      ativarGmailUI();
+    if (typeof EMAIL !== 'undefined' && EMAIL.ok && EMAIL.token) {
+      if (typeof ativarGmailUI === 'function') ativarGmailUI();
     }
-  }, 1500);
+  }, 2000);
 }
-
-// ══════════════════════════════════════════════════════
-// FIX 10: CLIENTES — sincroniza nomes com processos XLS
-// ══════════════════════════════════════════════════════
-function sincronizarClientesXLS() {
-  if (typeof XLS === 'undefined' || !XLS.length || typeof S === 'undefined') return;
-  var adicionados = 0;
-  var nomesExistentes = S.clientes.map(function(c){ return c.nome.toUpperCase().replace(/\s+/g,' '); });
-
-  XLS.forEach(function(r) {
-    var nome = (r.parte1 || '').trim();
-    if (!nome || nome.length < 4) return;
-    if (/^\d/.test(nome)) return;
-    var palavrasIgnorar = ['DOCUMENTOS','JUSTIÇA','FEDERAL','ESTADO','MUNICÍPIO','MINISTÉRIO','BANCO'];
-    if (palavrasIgnorar.some(function(p){ return nome.toUpperCase().indexOf(p) >= 0; })) return;
-
-    var normNome = nome.toUpperCase().replace(/\s+/g,' ');
-    if (nomesExistentes.indexOf(normNome) >= 0) return;
-
-    var ac = (r.acao || '').toUpperCase();
-    var area = ac.indexOf('TRABALH') >= 0 ? 'Trabalhista'
-      : ac.indexOf('PENAL') >= 0 ? 'Penal'
-      : ac.indexOf('FAM') >= 0 || ac.indexOf('DIV') >= 0 ? 'Família'
-      : ac.indexOf('TRIBUT') >= 0 ? 'Tributário' : 'Cível';
-
-    S.clientes.push({
-      id: S.nextCid++, nome: nome, cpfcnpj: '', email: '', tel: '',
-      area: area, tipo: 'PF', status: 'ativo', resp: 1,
-      exadverso: r.ex_adverso || '', endereco: r.vara || '',
-      obs: 'Importado do XLS. Ficha: ' + (r.ficha || 'N/A')
-    });
-    nomesExistentes.push(normNome);
-    adicionados++;
-  });
-
-  if (adicionados > 0) {
-    S.cFiltrados = [].concat(S.clientes);
-    if (typeof renderKPIClientes === 'function') renderKPIClientes();
-    log(adicionados + ' clientes sincronizados do XLS', 'ok');
-    if (typeof toast === 'function') toast('✅ ' + adicionados + ' clientes sincronizados com processos!', 'teal');
-  }
-  return adicionados;
-}
-
-// Expõe a função globalmente
-window.sincronizarClientesXLS = sincronizarClientesXLS;
-
-// Adiciona botão "Sincronizar com XLS" na página de clientes
-setTimeout(function() {
-  var topbarActions = document.querySelector('#pg-clientes .topbar-actions');
-  if (topbarActions && !document.getElementById('btnSyncXLS')) {
-    var btn = document.createElement('button');
-    btn.id = 'btnSyncXLS';
-    btn.className = 'btn btn-teal';
-    btn.innerHTML = '🔄 Sincronizar Processos';
-    btn.onclick = function() {
-      var n = sincronizarClientesXLS();
-      if (n === 0) toast('Todos os clientes já estão sincronizados', 'blue');
-    };
-    topbarActions.insertBefore(btn, topbarActions.firstChild);
-  }
-}, 1000);
-
