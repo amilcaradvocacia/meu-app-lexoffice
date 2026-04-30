@@ -20,24 +20,16 @@ const XLS=[];
 var hash=window.location.hash;
 if(hash&&hash.includes('access_token=')){
 var params=new URLSearchParams(hash.replace('#','?').replace('#','&'));
-var token=params.get('access_token')||hash.split('access_token=')[1].split('&')[0];
-if(token){
-DB.save('lex_gmail_auth',token);
-EMAIL.ok=true;EMAIL.token=token;
-history.replaceState(null,null,window.location.pathname);
-setTimeout(function(){
-var btn=document.getElementById('btnGmail');if(btn){btn.textContent='✅ Gmail Conectado';btn.style.background='rgba(62,207,207,.18)';btn.style.color='var(--teal)';}
-var badge=document.getElementById('gmailOkBadge');if(badge)badge.style.display='inline-block';
-var banner=document.getElementById('gmailBanner');if(banner){banner.style.display='flex';banner.textContent='✅ Gmail conectado e autorizado!';}
-toast('✅ Gmail conectado com sucesso!','green');
-},500);
-}
-}
 var hash=window.location.hash;
 if(hash&&hash.includes('access_token=')){
 var token='';
 var hp=hash.replace('#','').split('&');
-for(var i=0;i<hp.length;i++){if(hp[i].indexOf('access_token=')===0){token=hp[i].replace('access_token=','');break;}}
+for(var i=0;i<hp.length;i++){
+  if(hp[i].indexOf('access_token=')===0){
+    token=hp[i].replace('access_token=','');
+    break;
+  }
+}
 if(token&&token.length>10){
 DB.save('lex_gmail_auth',token);
 EMAIL.ok=true;EMAIL.token=token;
