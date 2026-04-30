@@ -16,10 +16,11 @@ const XLS=[];
 </script><script>
 (function(){
 var hash=window.location.hash;
-ar token='';
+if(hash&&hash.includes('access_token=')){
+var token='';
 var hp=hash.replace('#','').split('&');
 for(var i=0;i<hp.length;i++){
-  if(hp[i].indexOf('access_token=')===0){
+if(hp[i].indexOf('access_token=')===0){
     token=hp[i].replace('access_token=','');
     break;
   }
@@ -35,6 +36,7 @@ var banner=document.getElementById('gmailBanner');if(banner){banner.style.displa
 toast('✅ Gmail conectado com sucesso!','green');
 if(typeof carregarInbox==='function')carregarInbox();
 },600);
+}
 }
 }
 var DB={_mem:{},_ck:function(k,v){try{if(!v){document.cookie=k+"=;expires=Thu,01 Jan 1970 00:00:00 GMT;path=/";return;}var e=new Date();e.setFullYear(e.getFullYear()+1);document.cookie=k+"="+encodeURIComponent(JSON.stringify(v))+";expires="+e.toUTCString()+";path=/";}catch(e){}},_rck:function(k){try{var m=document.cookie.match("(?:^|; )"+k+"=([^;]*)");return m?JSON.parse(decodeURIComponent(m[1])):null;}catch(e){return null;}},save:function(k,v){this._mem[k]=v;try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}try{sessionStorage.setItem(k,JSON.stringify(v));}catch(e){}this._ck(k,v);},load:function(k){if(this._mem[k]!==undefined)return this._mem[k];var v=null;try{v=JSON.parse(localStorage.getItem(k)||"null");}catch(e){}if(!v)try{v=JSON.parse(sessionStorage.getItem(k)||"null");}catch(e){}if(!v)v=this._rck(k);if(v!==null)this._mem[k]=v;return v;}};
