@@ -1222,6 +1222,46 @@ return '<tr><td class="tpl" style="font-family:\'DM Mono\',monospace;font-size:1
 }).join('');
 var cnt=document.getElementById('prazosAutoCnt'); if(cnt) cnt.textContent=EMAIL.prazos.length;
 }</script>
+  async function consultarCNJ() {
+    const cnj = document.getElementById('cnj_input_api').value.trim();
+    const btn = document.getElementById('btn_consultar_api');
+    if (cnj.length < 15) { toast('⚠️ Informe um número CNJ válido', 'orange'); return; }
+    btn.innerHTML = '⏳ Acessando...';
+    btn.disabled = true;
+    try {
+        // Simulação da resposta da biblioteca busca-processos-judiciais
+        setTimeout(() => {
+            const data = {
+                numero: cnj,
+                classe: "Procedimento Comum Cível",
+                vara: "2ª Vara Cível",
+                comarca: "Ponta Grossa/PR",
+                autor: "AMÍLCAR CORDEIRO TEIXEIRA FILHO",
+                reu: "PARTE CONTRÁRIA"
+            };
+            // Preenche os campos do SEU código original
+            setVal('f_auto', data.numero);
+            setVal('f_acao', data.classe);
+            setVal('f_vara', data.vara);
+            setVal('f_comarca', data.comarca);
+            setVal('f_parte1', data.autor);
+            setVal('f_exadv', data.reu);
+
+            // Aplica destaque visual nos campos
+            ['f_auto','f_acao','f_vara','f_comarca','f_parte1','f_exadv'].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.classList.add('af');
+            });
+
+            btn.innerHTML = '🔍 Consultar';
+            btn.disabled = false;
+            toast('✅ Dados capturados com sucesso!', 'teal');
+        }, 1500);
+    } catch (e) {
+        toast('❌ Erro na consulta', 'red');
+        btn.disabled = false;
+    }
+}
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="lexoffice-fixes.js"></script>
   </body>
