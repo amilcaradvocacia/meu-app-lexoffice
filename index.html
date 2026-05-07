@@ -303,7 +303,7 @@ function enviarChat(){var inp=document.getElementById('chatInput');var msg=(inp|
 // ============================================================
 // GEMINI
 // ============================================================
-function testarGemini(){var key=(document.getElementById('geminiKey')||{value:''}).value;var s=document.getElementById('geminiStatus');if(!key){if(s){s.textContent='⚠️ Insira uma API Key';s.style.color='var(--orange)';}return;}if(s){s.textContent='⏳ Testando...';s.style.color='var(--text3)';}setTimeout(function(){if(s){s.textContent='✅ Conexão estabelecida!';s.style.color='var(--green)');}toast('✅ Gemini API ativo!','green');},1500);}
+function testarGemini(){var key=(document.getElementById('geminiKey')||{value:''}).value;var s=document.getElementById('geminiStatus');if(!key){if(s){s.textContent='⚠️ Insira uma API Key';s.style.color='var(--orange)';}return;}if(s){s.textContent='⏳ Testando...';s.style.color='var(--text3)';}setTimeout(function(){if(s){s.textContent='✅ Conexão estabelecida!';s.style.color='var(--green)';}toast('✅ Gemini API ativo!','green');},1500);}
 
 // ============================================================
 // EMAIL / GMAIL
