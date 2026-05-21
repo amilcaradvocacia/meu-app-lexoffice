@@ -114,6 +114,37 @@
   // ============================================================
   // ESTRATÉGIA 1: DataJud via proxy Cloudflare Worker
   // ============================================================
+  // Mapeia classe do DataJud para tipo de ação legível
+  function _mapearTipoAcao(classe) {
+    if (!classe) return '';
+    var c = classe.toUpperCase();
+    var mapa = [
+      [/RECLAMAT|TRABALHIST/,           'RECLAMATÓRIA TRABALHISTA'],
+      [/EXECU.*TRABALHIST|EXECU.*CLT/,  'EXECUÇÃO TRABALHISTA'],
+      [/EXECU.*FISCAL|DIVIDA.*ATIVA/,   'EXECUÇÃO FISCAL'],
+      [/EXECU.*CIVIL|CUMPRI.*SENTEN/,   'CUMPRIMENTO DE SENTENÇA'],
+      [/INDENIZ|DANO.*MORAL|DANO.*MAT/, 'AÇÃO DE INDENIZAÇÃO'],
+      [/COBRAN/,                         'AÇÃO DE COBRANÇA'],
+      [/DESPEJO|LOCA/,                   'AÇÃO DE DESPEJO'],
+      [/ALIMENT/,                        'AÇÃO DE ALIMENTOS'],
+      [/DIVORCIO|DIVÓRCIO/,              'AÇÃO DE DIVÓRCIO'],
+      [/INVENTARIO|INVENTÁRIO/,          'INVENTÁRIO'],
+      [/HABEAS.*CORPUS/,                 'HABEAS CORPUS'],
+      [/MANDADO.*SEGURANÇA/,             'MANDADO DE SEGURANÇA'],
+      [/RECUPERA.*JUDICIAL/,             'RECUPERAÇÃO JUDICIAL'],
+      [/FALENCIA|FALÊNCIA/,              'FALÊNCIA'],
+      [/REVISIONAL|REVISAO/,             'AÇÃO REVISIONAL'],
+      [/USUCAP/,                         'USUCAPIÃO'],
+      [/MONITOR/,                        'AÇÃO MONITÓRIA'],
+      [/POSSESSORIA|REINTEGR/,           'AÇÃO POSSESSÓRIA'],
+      [/PROCEDIMENTO.*COMUM|ORDINARIO/,  'PROCEDIMENTO COMUM CÍVEL'],
+    ];
+    for (var i = 0; i < mapa.length; i++) {
+      if (mapa[i][0].test(c)) return mapa[i][1];
+    }
+    return classe; // retorna o original se não mapear
+  }
+
   async function consultarDataJud(cnj, partes) {
     var proxyUrl = localStorage.getItem('lex_datajud_proxy') || '';
     var sigla = partes ? (DJ[partes.chave]||'tjpr') : 'tjpr';
@@ -144,7 +175,7 @@
 
     return {
       cnj: cnj, fonte:'DataJud ✅',
-      tipo_acao:    (src.classe&&src.classe.nome)||'',
+      tipo_acao:    _mapearTipoAcao((src.classe&&src.classe.nome)||''),
       vara:         (src.orgaoJulgador&&src.orgaoJulgador.nome)||'',
       comarca:      (src.municipio&&src.municipio.nome)||'',
       estado:       (src.tribunal&&src.tribunal.uf)||'',
@@ -204,7 +235,7 @@
 
     return {
       cnj: cnj, fonte: proc?'LexDB 💾':'CNJ parcial ℹ️',
-      tipo_acao:    tipo,
+      tipo_acao:    _mapearTipoAcao(tipo),
       vara:         vara,
       comarca:      com,
       estado:       proc?'':( tribunal?tribunal.uf:'PR' ),
@@ -279,65 +310,69 @@
   // PREENCHIMENTO DOS CAMPOS
   // ============================================================
   function _preencherCampos(d, t) {
-    // Preenche aba Partes automaticamente
-    function sp(id, val) {
+    function s(id, val) {
       var el = document.getElementById(id);
-      if (el && val) {
-        el.value = val;
-        el.classList.add('af');
-        el.dispatchEvent(new Event('input', {bubbles:true}));
-        el.dispatchEvent(new Event('change', {bubbles:true}));
-      }
+      if (!el || !val) return;
+      el.value = val; el.classList.add('af');
+      el.dispatchEvent(new Event('input',  {bubbles:true}));
+      el.dispatchEvent(new Event('change', {bubbles:true}));
     }
-    // Nosso cliente (polo ativo = quem Dr. Amilcar representa)
-    var poloAdv = d.advogados && d.advogados.find(function(a){
-      return a.nome && a.nome.toLowerCase().includes('amilcar');
-    });
-    var nossoCliente = '';
-    var parteAdversa = '';
-    if (poloAdv && poloAdv.polo) {
-      var pAtivo = /ATIVO|AUTOR|RECLAMANTE/i.test(poloAdv.polo);
-      nossoCliente = pAtivo ? d.polo_ativo : d.polo_passivo;
-      parteAdversa = pAtivo ? d.polo_passivo : d.polo_ativo;
-    } else {
-      nossoCliente = d.polo_ativo;
-      parteAdversa = d.polo_passivo;
-    }
-    // Aba Partes
-    sp('p_nome_cliente',  nossoCliente);
-    sp('p_cliente',       nossoCliente);
-    sp('p_parte_cliente', nossoCliente);
-    sp('p_polo1',         nossoCliente);
-    sp('p_exadv',         parteAdversa);
-    sp('p_adverso',       parteAdversa);
-    sp('p_parte_adversa', parteAdversa);
-    sp('p_parte2',        parteAdversa);
-    // Polo processual do cliente
-    if (poloAdv) {
-      var polo = /ATIVO|AUTOR|RECLAMANTE/i.test(poloAdv.polo||'') ? 'AUTOR' : 'RÉU';
-      sp('p_polo_cliente', polo);
-      sp('p_polo', polo);
-      var poloSel = document.getElementById('p_polo_cliente') || document.getElementById('p_polo');
-      if (poloSel && poloSel.tagName === 'SELECT') {
-        for(var i=0;i<poloSel.options.length;i++){
-          if(poloSel.options[i].text.toUpperCase().includes(polo)){poloSel.selectedIndex=i;break;}
+    function setSel(id, val) {
+      var el = document.getElementById(id);
+      if (!el || el.tagName !== 'SELECT' || !val) return;
+      var v = val.toUpperCase();
+      for (var i = 0; i < el.options.length; i++) {
+        if (el.options[i].value.toUpperCase() === v ||
+            el.options[i].text.toUpperCase().includes(v)) {
+          el.selectedIndex = i;
+          el.classList.add('af');
+          el.dispatchEvent(new Event('change', {bubbles:true}));
+          break;
         }
       }
     }
-    // Advogados da parte contrária
-    var advContrario = d.advogados && d.advogados.find(function(a){
+
+    // ── Determina nosso cliente vs adverso ─────────────────────
+    var poloAdv = d.advogados && d.advogados.find(function(a) {
+      return a.nome && a.nome.toLowerCase().includes('amilcar');
+    });
+    var nossoCliente = '', parteAdversa = '', poloNosso = 'AUTOR';
+
+    if (poloAdv && poloAdv.polo) {
+      var eAtivo = /ATIVO|AUTOR|RECLAMANTE|EXEQUENTE/i.test(poloAdv.polo);
+      nossoCliente = eAtivo ? (d.polo_ativo || '') : (d.polo_passivo || '');
+      parteAdversa = eAtivo ? (d.polo_passivo || '') : (d.polo_ativo || '');
+      poloNosso    = eAtivo ? 'AUTOR' : 'RÉU';
+    } else {
+      nossoCliente = d.polo_ativo  || '';
+      parteAdversa = d.polo_passivo || '';
+    }
+
+    // ── Aba Partes — IDs REAIS do modal ────────────────────────
+    s('f_parte1', nossoCliente);          // Nome do cliente
+    setSel('f_polo', poloNosso);          // Polo: AUTOR ou RÉU
+    s('f_exadv',  parteAdversa);          // Nome parte adversa
+
+    // Tipo da parte adversa (PJ se tiver LTDA/SA/EIRELI etc.)
+    if (parteAdversa) {
+      var isPJ = /LTDA|S\.?A\.?|EIRELI|ME|EPP|S\/A|SOCIEDADE|EMPRESA|CIA|COMPANHIA/i.test(parteAdversa);
+      setSel('f_tipo_adv', isPJ ? 'PJ' : 'PF');
+    }
+
+    // Advogado da parte contrária
+    var advAdv = d.advogados && d.advogados.find(function(a) {
       return a.nome && !a.nome.toLowerCase().includes('amilcar');
     });
-    if (advContrario) {
-      sp('p_adv_adverso', advContrario.nome + (advContrario.oab ? ' OAB ' + advContrario.oab : ''));
-      sp('p_adv_contrario', advContrario.nome);
+    if (advAdv) {
+      s('f_adv_adv', advAdv.nome + (advAdv.oab ? ' — OAB ' + advAdv.oab : ''));
     }
-    // Cria pasta no Drive se novo processo e LexAT disponível
+
+    // Cria pasta no Drive se novo processo
     if (nossoCliente && typeof LexAT !== 'undefined' && LexAT.DRIVE) {
       var procExist = typeof LexSync !== 'undefined' ? LexSync.DB.findByCNJ(d.cnj) : null;
       if (!procExist || !procExist.drive_folder_id) {
-        var nomePasta = (d.ficha||'') + (d.ficha?' — ':'') + nossoCliente + (parteAdversa?' vs '+parteAdversa:'');
-        LexAT.DRIVE.criarPastaCliente(nomePasta.slice(0,100)).catch(function(){});
+        var nomePasta = nossoCliente + (parteAdversa ? ' vs ' + parteAdversa : '');
+        LexAT.DRIVE.criarPastaCliente(nomePasta.slice(0, 100)).catch(function(){});
       }
     }
 
