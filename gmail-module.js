@@ -20,7 +20,12 @@
   'use strict';
 
   // ─── Configuração ───────────────────────────────────────────
-  var SCOPES = 'https://www.googleapis.com/auth/gmail.readonly';
+  var SCOPES = [
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/drive',
+    'https://www.googleapis.com/auth/calendar',
+  ].join(' ');
   var INTERVAL_KEY = 'lex_gmail_interval';
   var TOKEN_KEY = 'lex_gmail_token';
   var TOKEN_EXP_KEY = 'lex_gmail_token_exp';
