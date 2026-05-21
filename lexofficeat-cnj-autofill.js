@@ -279,6 +279,68 @@
   // PREENCHIMENTO DOS CAMPOS
   // ============================================================
   function _preencherCampos(d, t) {
+    // Preenche aba Partes automaticamente
+    function sp(id, val) {
+      var el = document.getElementById(id);
+      if (el && val) {
+        el.value = val;
+        el.classList.add('af');
+        el.dispatchEvent(new Event('input', {bubbles:true}));
+        el.dispatchEvent(new Event('change', {bubbles:true}));
+      }
+    }
+    // Nosso cliente (polo ativo = quem Dr. Amilcar representa)
+    var poloAdv = d.advogados && d.advogados.find(function(a){
+      return a.nome && a.nome.toLowerCase().includes('amilcar');
+    });
+    var nossoCliente = '';
+    var parteAdversa = '';
+    if (poloAdv && poloAdv.polo) {
+      var pAtivo = /ATIVO|AUTOR|RECLAMANTE/i.test(poloAdv.polo);
+      nossoCliente = pAtivo ? d.polo_ativo : d.polo_passivo;
+      parteAdversa = pAtivo ? d.polo_passivo : d.polo_ativo;
+    } else {
+      nossoCliente = d.polo_ativo;
+      parteAdversa = d.polo_passivo;
+    }
+    // Aba Partes
+    sp('p_nome_cliente',  nossoCliente);
+    sp('p_cliente',       nossoCliente);
+    sp('p_parte_cliente', nossoCliente);
+    sp('p_polo1',         nossoCliente);
+    sp('p_exadv',         parteAdversa);
+    sp('p_adverso',       parteAdversa);
+    sp('p_parte_adversa', parteAdversa);
+    sp('p_parte2',        parteAdversa);
+    // Polo processual do cliente
+    if (poloAdv) {
+      var polo = /ATIVO|AUTOR|RECLAMANTE/i.test(poloAdv.polo||'') ? 'AUTOR' : 'RÉU';
+      sp('p_polo_cliente', polo);
+      sp('p_polo', polo);
+      var poloSel = document.getElementById('p_polo_cliente') || document.getElementById('p_polo');
+      if (poloSel && poloSel.tagName === 'SELECT') {
+        for(var i=0;i<poloSel.options.length;i++){
+          if(poloSel.options[i].text.toUpperCase().includes(polo)){poloSel.selectedIndex=i;break;}
+        }
+      }
+    }
+    // Advogados da parte contrária
+    var advContrario = d.advogados && d.advogados.find(function(a){
+      return a.nome && !a.nome.toLowerCase().includes('amilcar');
+    });
+    if (advContrario) {
+      sp('p_adv_adverso', advContrario.nome + (advContrario.oab ? ' OAB ' + advContrario.oab : ''));
+      sp('p_adv_contrario', advContrario.nome);
+    }
+    // Cria pasta no Drive se novo processo e LexAT disponível
+    if (nossoCliente && typeof LexAT !== 'undefined' && LexAT.DRIVE) {
+      var procExist = typeof LexSync !== 'undefined' ? LexSync.DB.findByCNJ(d.cnj) : null;
+      if (!procExist || !procExist.drive_folder_id) {
+        var nomePasta = (d.ficha||'') + (d.ficha?' — ':'') + nossoCliente + (parteAdversa?' vs '+parteAdversa:'');
+        LexAT.DRIVE.criarPastaCliente(nomePasta.slice(0,100)).catch(function(){});
+      }
+    }
+
     function s(id,v){
       var el=document.getElementById(id);
       if(el&&v){ el.value=v; el.classList.add('af');
@@ -373,11 +435,18 @@
     }
 
     // Banner proxy se não configurado
-    if(!temProxy && d.fonte.includes('parcial')){
-      h+='<div style="background:rgba(201,168,76,.08);border:1px solid rgba(201,168,76,.2);border-radius:7px;padding:8px;font-size:11px;color:var(--gold)">';
-      h+='💡 <b>Configure o Proxy DataJud</b> para auto-preenchimento completo.<br>';
-      h+='<span style="color:var(--text3)">Integrações → cole a URL do Cloudflare Worker</span>';
-      h+='</div>';
+    var temClaudeKey = !!localStorage.getItem('lex_anthropic_key');
+    if (!temClaudeKey || (!temProxy && d.fonte.includes('parcial'))) {
+      h += '<div style="background:rgba(91,141,238,.07);border:1px solid rgba(91,141,238,.2);border-radius:7px;padding:9px;font-size:11px">';
+      if (!temClaudeKey) {
+        h += '<div style="color:var(--blue);font-weight:600;margin-bottom:4px">🤖 Conecte o Claude para auto-preenchimento real</div>';
+        h += '<div style="color:var(--text3)">Integrações → Anthropic API Key → cole sua chave sk-ant-...</div>';
+      } else if (!temProxy) {
+        h += '<div style="color:var(--gold);font-weight:600;margin-bottom:4px">💡 Configure o Proxy DataJud para dados completos</div>';
+        h += '<div style="color:var(--text3)">Worker ativo em: <span style="color:var(--teal)">lexoffice-datajud.amilcaradvocacia.workers.dev</span></div>';
+        h += '<div style="color:var(--text3);margin-top:3px">Integrações → URL Proxy DataJud → cole a URL acima</div>';
+      }
+      h += '</div>';
     }
     h+='</div>';
     el.innerHTML=h;
