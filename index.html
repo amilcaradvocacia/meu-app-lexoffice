@@ -385,12 +385,37 @@ function renderUsuariosAdmin(){
   var perfis={advogado:'Sócio',associado:'Associado',estagiario:'Estagiário',assistente:'Assistente',admin:'Admin'};
   var rows=S.usuarios.map(function(u){
     var canToggle=S.usuarios.filter(function(x){return x.ativo;}).length>1||!u.ativo;
-    return '<tr><td class="tpl"><div style="display:flex;align-items:center;gap:8px"><div class="avatar" style="background:'+u.cor+'22;color:'+u.cor+';width:28px;height:28px;font-size:11px">'+ini(u.nome)+'</div><div><div style="font-size:13px;color:var(--text);font-weight:500">'+u.nome+'</div>'+(u.oab?'<div style="font-size:10px;color:var(--text3)">'+u.oab+'</div>':'')+'</div></div></td><td><span class="badge bb">'+(perfis[u.perfil]||u.perfil)+'</span></td><td style="font-size:12px">'+u.email+'</td><td>'+(u.ativo?'<span class="badge bg">Ativo</span>':'<span class="badge br">Inativo</span>')+'</td><td class="tpr"><div style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="editarUser('+u.id+')">✏️ Editar</button>'+(canToggle?'<button class="btn btn-ghost btn-xs" style="color:'+(u.ativo?'var(--red)':'var(--green)')+'" onclick="toggleUser('+u.id+')">'+(u.ativo?'Desativar':'Ativar')+'</button>':'')+'</div></td></tr>';
+    return '<tr><td class="tpl"><div style="display:flex;align-items:center;gap:8px"><div class="avatar" style="background:'+u.cor+'22;color:'+u.cor+';width:28px;height:28px;font-size:11px">'+ini(u.nome)+'</div><div><div style="font-size:13px;color:var(--text);font-weight:500">'+u.nome+'</div>'+(u.oab?'<div style="font-size:10px;color:var(--text3)">'+u.oab+'</div>':'')+'</div></div></td><td><span class="badge bb">'+(perfis[u.perfil]||u.perfil)+'</span></td><td style="font-size:12px">'+u.email+'</td><td>'+(u.ativo?'<span class="badge bg">Ativo</span>':'<span class="badge br">Inativo</span>')+'</td><td class="tpr"><div style="display:flex;gap:5px"><button class="btn btn-ghost btn-xs" onclick="editarUser('+u.id+')">✏️ Editar</button>'+(canToggle?'<button class="btn btn-ghost btn-xs" style="color:'+(u.ativo?'var(--red)':'var(--green)')+'" onclick="toggleUser('+u.id+')">'+(u.ativo?'Desativar':'Ativar')+'</button>':'')+(!u.ativo?'<button class="btn btn-ghost btn-xs" style="color:var(--red)" onclick="excluirUser('+u.id+')">🗑️</button>':'')+'</div></td></tr>';
   }).join('');
   el.innerHTML='<table><thead><tr><th class="tpl">Nome</th><th>Perfil</th><th>E-mail</th><th>Status</th><th class="tpr">Ações</th></tr></thead><tbody>'+rows+'</tbody></table>';
 }
-function editarUser(id){var u=S.usuarios.find(function(x){return x.id===id;});if(!u)return;document.getElementById('u_editId').value=id;document.getElementById('u_nome').value=u.nome;document.getElementById('u_perfil').value=u.perfil;document.getElementById('u_oab').value=u.oab||'';document.getElementById('u_email').value=u.email||'';document.getElementById('u_tel').value=u.tel||'';document.getElementById('u_cor').value=u.cor;renderUsuariosAdmin();}
+function editarUser(id){
+  var u=S.usuarios.find(function(x){return x.id===id;});if(!u)return;
+  document.getElementById('u_editId').value=id;
+  document.getElementById('u_nome').value=u.nome;
+  document.getElementById('u_perfil').value=u.perfil;
+  document.getElementById('u_oab').value=u.oab||'';
+  document.getElementById('u_email').value=u.email||'';
+  document.getElementById('u_tel').value=u.tel||'';
+  document.getElementById('u_cor').value=u.cor||'#c9a84c';
+  renderUsuariosAdmin();
+  // Scrolla até o formulário de edição
+  var form=document.getElementById('u_nome');
+  if(form){setTimeout(function(){form.scrollIntoView({behavior:'smooth',block:'center'});form.focus();},100);}
+  toast('✏️ Editando: '+u.nome,'blue');
+}
 function toggleUser(id){var u=S.usuarios.find(function(x){return x.id===id;});if(!u)return;if(u.ativo&&S.usuarios.filter(function(x){return x.ativo;}).length<=1){toast('⚠️ Pelo menos 1 usuário ativo','orange');return;}u.ativo=!u.ativo;if(!u.ativo&&S.uidAtivo===id){var first=S.usuarios.find(function(x){return x.ativo;});if(first)S.uidAtivo=first.id;}renderSidebar();renderUsuariosAdmin();preencherRespSel();toast(u.ativo?'✅ Usuário ativado':'ℹ️ Usuário desativado','blue');}
+function excluirUser(id){
+  var u=S.usuarios.find(function(x){return x.id===id;});
+  if(!u){toast('Usuário não encontrado','red');return;}
+  if(u.ativo){toast('⚠️ Desative o usuário antes de excluir','orange');return;}
+  if(!confirm('Excluir definitivamente "'+u.nome+'"? Esta ação não pode ser desfeita.')){return;}
+  S.usuarios=S.usuarios.filter(function(x){return x.id!==id;});
+  salvarDados();
+  renderUsuariosAdmin();
+  renderSidebarUsers();
+  toast('🗑️ Usuário excluído','green');
+}
 function salvarUsuario(){var nome=document.getElementById('u_nome').value.trim();if(!nome){toast('⚠️ Nome é obrigatório','orange');return;}var editId=parseInt(document.getElementById('u_editId').value)||0;var ativos=S.usuarios.filter(function(u){return u.ativo;}).length;if(!editId&&ativos>=20){toast('⚠️ Limite de 20 usuários atingido','orange');return;}var data={nome:nome,perfil:document.getElementById('u_perfil').value,oab:document.getElementById('u_oab').value,email:document.getElementById('u_email').value,tel:document.getElementById('u_tel').value,cor:document.getElementById('u_cor').value,ativo:true};if(editId){var idx=S.usuarios.findIndex(function(u){return u.id===editId;});if(idx>=0)S.usuarios[idx]=Object.assign({},S.usuarios[idx],data);toast('✅ Usuário atualizado!','green');}else{data.id=S.nextUid++;S.usuarios.push(data);toast('✅ Usuário adicionado!','gold');}limparFormUsuario();renderSidebar();renderUsuariosAdmin();preencherRespSel();}
 function limparFormUsuario(){['u_editId','u_nome','u_oab','u_email','u_tel'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});}
 
