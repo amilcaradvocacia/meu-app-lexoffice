@@ -720,20 +720,67 @@ Movimentação: ${movimentacao}. Seja breve, cordial e profissional.`
     CALENDAR, DRIVE, GMAIL, IA,
 
     salvarConfigs() {
-      const key = document.getElementById('lexat_anthropic_key')?.value?.trim();
-      const driveId = document.getElementById('lexat_drive_id')?.value?.trim();
-      if (key)     { CFG.ANTHROPIC_KEY = key;     localStorage.setItem('lex_anthropic_key', key); }
+      // Lê de todos os campos possíveis
+      const key = (document.getElementById('lexat_anthropic_key')?.value ||
+                   document.getElementById('claude_api_key_card')?.value || '').trim();
+      const driveId = (document.getElementById('lexat_drive_id')?.value || '').trim();
+      const proxy   = (document.getElementById('lex_proxy_datajud')?.value || '').trim();
+      const modelo  = document.getElementById('lexat_modelo')?.value || 'claude-sonnet-4-20250514';
+
+      if (key)     { CFG.ANTHROPIC_KEY = key; localStorage.setItem('lex_anthropic_key', key); }
       if (driveId) { CFG.DRIVE_FOLDER_CLIENTES_ID = driveId; localStorage.setItem('lex_drive_clientes_id', driveId); }
-      toast('✅ Configurações salvas!', 'green');
+      if (proxy)   { localStorage.setItem('lex_datajud_proxy', proxy); }
+      if (modelo)  { localStorage.setItem('lex_claude_modelo', modelo); }
+
+      // Sincroniza todos os campos de API Key na página
+      ['lexat_anthropic_key','claude_api_key_card'].forEach(id => {
+        const el = document.getElementById(id); if (el && key) el.value = key;
+      });
+      // Atualiza badge Claude
+      const badge = document.getElementById('badge-claude');
+      if (badge && key) { badge.textContent = 'Ativo ✅'; badge.className = 'badge bteal'; }
+
+      if (typeof window.toast === 'function') window.toast('✅ Configurações salvas!', 'green');
       const st = document.getElementById('lexat_status');
-      if (st) st.textContent = `✅ API Key: ${key ? key.slice(0,12)+'...' : 'não configurada'} | Drive: ${driveId || 'padrão'}`;
+      if (st) st.innerHTML = '✅ Claude: ' + (key ? key.slice(0,15)+'...' : '❌ não configurado') +
+        ' | Modelo: ' + modelo + ' | Proxy: ' + (proxy ? '✅' : '❌');
     },
 
     async testarIA() {
       const st = document.getElementById('lexat_status');
-      if (st) st.textContent = '🔍 Testando IA...';
-      const res = await IA.pesquisarJurisprudencia('responsabilidade civil dano moral consumidor', 'Cível');
-      if (res && st) st.textContent = '✅ IA funcionando! Resultado salvo em Jurisprudência.';
+      if (!CFG.ANTHROPIC_KEY) {
+        if (st) st.innerHTML = '❌ API Key não configurada — salve a chave primeiro';
+        if (typeof window.toast === 'function') window.toast('⚠️ Cole a API Key Claude e clique Salvar', 'orange');
+        return;
+      }
+      if (st) st.innerHTML = '🔍 Testando Claude API...';
+      try {
+        const resp = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': CFG.ANTHROPIC_KEY,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: localStorage.getItem('lex_claude_modelo') || 'claude-sonnet-4-20250514',
+            max_tokens: 100,
+            messages: [{ role: 'user', content: 'Responda apenas: Claude funcionando no LexOfficeAT!' }]
+          })
+        });
+        const data = await resp.json();
+        if (data.content && data.content[0]) {
+          const msg = data.content[0].text || 'OK';
+          if (st) st.innerHTML = '✅ Claude ativo! Modelo: ' + (data.model||'?') + ' — ' + msg;
+          if (typeof window.toast === 'function') window.toast('✅ Claude funcionando!', 'green');
+        } else if (data.error) {
+          if (st) st.innerHTML = '❌ Erro Claude: ' + (data.error.message || JSON.stringify(data.error));
+          if (typeof window.toast === 'function') window.toast('❌ ' + (data.error.message||'Erro Claude'), 'red');
+        }
+      } catch(e) {
+        if (st) st.innerHTML = '❌ Erro de conexão: ' + e.message;
+        if (typeof window.toast === 'function') window.toast('❌ Erro: ' + e.message, 'red');
+      }
     },
 
     async testarCalendar() {
