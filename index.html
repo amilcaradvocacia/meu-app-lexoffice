@@ -103,17 +103,33 @@
 })();
 
 function salvarConfigsCentral(){
-  var k=document.getElementById('lexat_anthropic_key').value.trim();
-  var m=document.getElementById('lexat_modelo').value;
-  var p=document.getElementById('lex_proxy_datajud').value.trim();
-  var d=document.getElementById('lexat_drive_id').value.trim();
-  if(k){localStorage.setItem('lex_anthropic_key',k);var ck=document.getElementById('claude_api_key_card');if(ck)ck.value=k;var b=document.getElementById('badge-claude');if(b){b.textContent='Ativo ✅';b.className='badge bteal';}}
+  var k=(document.getElementById('lexat_anthropic_key')||{}).value||'';
+  k=k.trim();
+  var m=(document.getElementById('lexat_modelo')||{}).value||'claude-sonnet-4-20250514';
+  var p=(document.getElementById('lex_proxy_datajud')||{}).value||'';
+  p=p.trim();
+  var d=(document.getElementById('lexat_drive_id')||{}).value||'';
+  d=d.trim();
+  if(k){
+    localStorage.setItem('lex_anthropic_key',k);
+    // Sincroniza todos os campos de key na página
+    ['lexat_anthropic_key','claude_api_key_card'].forEach(function(id){
+      var el=document.getElementById(id);if(el)el.value=k;
+    });
+    var b=document.getElementById('badge-claude');
+    if(b){b.textContent='Ativo ✅';b.className='badge bteal';}
+    // Atualiza CFG do LexAT
+    if(typeof LexAT!=='undefined'&&LexAT.ANTHROPIC_KEY!==undefined){
+      try{eval('if(typeof CFG!=="undefined")CFG.ANTHROPIC_KEY="'+k+'"');}catch(e){}
+    }
+  }
   if(m)localStorage.setItem('lex_claude_modelo',m);
   if(p)localStorage.setItem('lex_datajud_proxy',p);
   if(d)localStorage.setItem('lex_drive_clientes_id',d);
   var st=document.getElementById('lexat_status');
-  if(st)st.innerHTML='✅ Salvo! Claude: '+(k?'✅':'❌')+' | Modelo: '+(m||'?')+' | DataJud: '+(p?'✅':'❌')+' | Drive: '+(d?'✅':'❌');
-  toast('✅ Todas as configurações salvas!','green');
+  if(st)st.innerHTML='✅ Salvo! Claude: '+(k?'<span style="color:var(--green)">✅ '+k.slice(0,16)+'...</span>':'<span style="color:var(--red)">❌ não configurado</span>')+
+    ' | Modelo: '+(m||'?')+' | DataJud: '+(p?'✅':'❌');
+  if(typeof toast==='function')toast('✅ Configurações salvas! Clique em Testar Claude.','green');
 }
 
 function salvarClaudeCard(){
@@ -129,11 +145,21 @@ function salvarClaudeCard(){
 
 function testarJUSRATIOCard(){
   var el=document.getElementById('jusratio_status');
+  // JUSRATIO funciona via MCP do Claude — testa a base local LexIA
   if(typeof LexIAJuridica!=='undefined'){
     var t=LexIAJuridica.sugerirTeses('Trabalhista','horas extras');
-    if(el)el.innerHTML='✅ LexIA/JUSRATIO ativo — '+t.length+' teses encontradas';
-    toast('✅ JUSRATIO funcionando!','teal');
-  } else {if(el)el.textContent='⚠️ Recarregue a página';}
+    if(el)el.innerHTML='✅ LexIA ativo — '+t.length+' teses | Base: '+Object.values(LexIAJuridica.dataset.teses).flatMap(function(a){return Object.values(a);}).flat().length+' teses jurídicas';
+    if(typeof toast==='function')toast('✅ JUSRATIO/LexIA funcionando!','teal');
+  } else {
+    // Tenta carregar via script dinâmico
+    var s=document.createElement('script');
+    s.src='lexofficeat-ia-juridica.js';
+    s.onload=function(){
+      if(el)el.innerHTML='✅ JUSRATIO carregado! Reabra o painel.';
+    };
+    document.head.appendChild(s);
+    if(el)el.innerHTML='🔄 Carregando JUSRATIO...';
+  }
 }
 
 function testarDataJudInteg(){
@@ -336,7 +362,7 @@ function renderUsuariosAdmin(){
 }
 function editarUser(id){var u=S.usuarios.find(function(x){return x.id===id;});if(!u)return;document.getElementById('u_editId').value=id;document.getElementById('u_nome').value=u.nome;document.getElementById('u_perfil').value=u.perfil;document.getElementById('u_oab').value=u.oab||'';document.getElementById('u_email').value=u.email||'';document.getElementById('u_tel').value=u.tel||'';document.getElementById('u_cor').value=u.cor;renderUsuariosAdmin();}
 function toggleUser(id){var u=S.usuarios.find(function(x){return x.id===id;});if(!u)return;if(u.ativo&&S.usuarios.filter(function(x){return x.ativo;}).length<=1){toast('⚠️ Pelo menos 1 usuário ativo','orange');return;}u.ativo=!u.ativo;if(!u.ativo&&S.uidAtivo===id){var first=S.usuarios.find(function(x){return x.ativo;});if(first)S.uidAtivo=first.id;}renderSidebar();renderUsuariosAdmin();preencherRespSel();toast(u.ativo?'✅ Usuário ativado':'ℹ️ Usuário desativado','blue');}
-function salvarUsuario(){var nome=document.getElementById('u_nome').value.trim();if(!nome){toast('⚠️ Nome é obrigatório','orange');return;}var editId=parseInt(document.getElementById('u_editId').value)||0;var ativos=S.usuarios.filter(function(u){return u.ativo;}).length;if(!editId&&ativos>=5){toast('⚠️ Limite de 5 usuários atingido','orange');return;}var data={nome:nome,perfil:document.getElementById('u_perfil').value,oab:document.getElementById('u_oab').value,email:document.getElementById('u_email').value,tel:document.getElementById('u_tel').value,cor:document.getElementById('u_cor').value,ativo:true};if(editId){var idx=S.usuarios.findIndex(function(u){return u.id===editId;});if(idx>=0)S.usuarios[idx]=Object.assign({},S.usuarios[idx],data);toast('✅ Usuário atualizado!','green');}else{data.id=S.nextUid++;S.usuarios.push(data);toast('✅ Usuário adicionado!','gold');}limparFormUsuario();renderSidebar();renderUsuariosAdmin();preencherRespSel();}
+function salvarUsuario(){var nome=document.getElementById('u_nome').value.trim();if(!nome){toast('⚠️ Nome é obrigatório','orange');return;}var editId=parseInt(document.getElementById('u_editId').value)||0;var ativos=S.usuarios.filter(function(u){return u.ativo;}).length;if(!editId&&ativos>=20){toast('⚠️ Limite de 20 usuários atingido','orange');return;}var data={nome:nome,perfil:document.getElementById('u_perfil').value,oab:document.getElementById('u_oab').value,email:document.getElementById('u_email').value,tel:document.getElementById('u_tel').value,cor:document.getElementById('u_cor').value,ativo:true};if(editId){var idx=S.usuarios.findIndex(function(u){return u.id===editId;});if(idx>=0)S.usuarios[idx]=Object.assign({},S.usuarios[idx],data);toast('✅ Usuário atualizado!','green');}else{data.id=S.nextUid++;S.usuarios.push(data);toast('✅ Usuário adicionado!','gold');}limparFormUsuario();renderSidebar();renderUsuariosAdmin();preencherRespSel();}
 function limparFormUsuario(){['u_editId','u_nome','u_oab','u_email','u_tel'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});}
 
 // ============================================================
