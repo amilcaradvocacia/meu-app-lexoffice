@@ -83,12 +83,16 @@
 
   function driveFetch(method, path, body) {
     var token = getToken();
-    if (!token) return Promise.reject(new Error('Sem token'));
+    if (!token) return Promise.reject(new Error('Sem token Gmail — conecte primeiro'));
     return fetch('https://www.googleapis.com' + path, {
       method: method,
       headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined,
-    }).then(function(r) { return r.json(); });
+    }).then(function(r) {
+      if (r.status === 401) return Promise.reject(new Error('TOKEN_EXPIRADO'));
+      if (r.status === 403) return Promise.reject(new Error('SEM_PERMISSAO_DRIVE'));
+      return r.json();
+    });
   }
 
   function calendarFetch(method, path, body) {
@@ -172,6 +176,26 @@
   // 📁  GOOGLE DRIVE — Pasta por processo
   // ============================================================
   function criarPastaProcesso(proc) {
+    // Se LexAT.DRIVE disponível, usa ele (já testado e funciona)
+    if (typeof LexAT !== 'undefined' && LexAT.DRIVE && proc.polo_cliente) {
+      var nomeCliente = (proc.ficha ? proc.ficha + ' — ' : '') +
+        (proc.polo_cliente || 'Cliente') + (proc.ex_adverso ? ' vs ' + proc.ex_adverso : '');
+      return LexAT.DRIVE.criarPastaCliente(nomeCliente.slice(0, 100))
+        .then(function(result) {
+          if (result && result.id) {
+            STATE.stats.pastas++;
+            if (typeof LexSync !== 'undefined')
+              LexSync.DB.update(LexSync.DB.KEYS.processos, proc.id, {
+                drive_folder_id: result.id, drive_folder_nome: nomeCliente
+              });
+            _log('📁 ✅ Pasta criada via LexAT: ' + nomeCliente);
+            return { pasta: result, subpastas: [] };
+          }
+          return null;
+        }).catch(function(e) { _log('📁 ❌ ' + e.message); return null; });
+    }
+    // Fallback: implementação direta
+    
     if (!CFG.CRIAR_DRIVE) return Promise.resolve(null);
     var token = getToken();
     if (!token) return Promise.resolve(null);
@@ -192,7 +216,15 @@
       parents: [DRIVE_IDS.clientes()],
     })
     .then(function(pasta) {
-      if (!pasta.id) throw new Error('Falha ao criar pasta');
+      if (!pasta.id) {
+        var errMsg = pasta.error ? (pasta.error.message || JSON.stringify(pasta.error)) : 'Sem ID retornado';
+        // Se erro de escopo, avisa para reconectar
+        if (pasta.error && pasta.error.code === 403) {
+          _log('📁 ❌ Sem permissão Drive — clique em Conectar Gmail para re-autorizar com escopos completos');
+          _toast('⚠️ Re-autorize o Gmail (escopos Drive + Calendar)', 'orange');
+        }
+        throw new Error('Falha ao criar pasta: ' + errMsg);
+      }
 
       // 2. Salva ID da pasta no LexDB
       if (typeof LexSync !== 'undefined') {
@@ -365,9 +397,9 @@
         }
       })
       .catch(function(e) {
-        if (e.message === 'TOKEN_EXPIRADO') {
-          _log('⚠️ Token expirado — clique em Conectar Gmail');
-          _toast('⚠️ Sessão Gmail expirada. Reconecte.', 'orange');
+        if (e.message === 'TOKEN_EXPIRADO' || e.message === 'SEM_PERMISSAO_DRIVE') {
+          _log('⚠️ Token sem permissão ou expirado — clique em Conectar Gmail para re-autorizar');
+          _toast('⚠️ Re-autorize o Gmail (Drive + Calendar + Gmail)', 'orange');
           pararMonitor();
         } else {
           _log('❌ Erro no ciclo: ' + e.message);
