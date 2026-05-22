@@ -416,12 +416,28 @@
     // 1. Parse com LexSync
     var parsed = null;
     if (typeof LexSync !== 'undefined') {
-      parsed = email.fonte === 'jusbrasil'
-        ? LexSync.Parser.Jusbrasil.parse(email.corpo)
-        : LexSync.Parser.Impacta.parse(email.corpo, email.fonte);
+      try {
+        parsed = email.fonte === 'jusbrasil'
+          ? LexSync.Parser.Jusbrasil.parse(email.corpo)
+          : LexSync.Parser.Impacta.parse(email.corpo, email.fonte);
+      } catch(parseErr) {
+        _log('[ERRO] Parse falhou: ' + parseErr.message);
+        STATE.processados[email.id] = true;
+        return Promise.resolve(null);
+      }
 
       // 2. AutoFill — cria/atualiza processos no LexDB
-      var resultado = LexSync.AutoFill.processarPublicacao(parsed);
+      var resultado = null;
+      try {
+        resultado = LexSync.AutoFill.processarPublicacao(parsed);
+      } catch(afErr) {
+        _log('[ERRO] AutoFill falhou: ' + afErr.message);
+        resultado = { novos: [], atualizados: [], erros: [] };
+      }
+      // Guards contra undefined
+      resultado = resultado || {};
+      resultado.novos       = resultado.novos       || [];
+      resultado.atualizados = resultado.atualizados || [];
       STATE.stats.novos       += resultado.novos.length;
       STATE.stats.atualizados += resultado.atualizados.length;
 
