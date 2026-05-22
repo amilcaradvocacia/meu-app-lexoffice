@@ -212,7 +212,32 @@
       };
 
       // Jusbrasil formata por blocos separados por linhas
-      // Cada bloco tem: tribunal, número, partes, movimento
+      // Extrai TODOS os CNJs do e-mail primeiro
+      var allCNJs = [...new Set([...texto.matchAll(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/g)].map(m=>m[1]))];
+      if(allCNJs.length>0){
+        // Processa cada CNJ individualmente
+        allCNJs.forEach(function(cnj){
+          var idx = texto.indexOf(cnj);
+          var ctx = texto.slice(Math.max(0,idx-300), idx+500);
+          var mov = ctx.match(/(?:Publica|Decis|Despacho|Senten|Acord)[^\n]{10,150}/i);
+          resultado.processos.push({
+            cnj: cnj,
+            tribunal: ctx.match(/(TRT\d+|TJ[A-Z]{2}|STJ|STF|TST|TRF\d)/i)?.[1]||null,
+            partes: {
+              autor:  ctx.match(/(?:AUTOR[A]?|RECLAMANTE|REQUERENTE)[:\s]+([^\n,]+)/i)?.[1]?.trim()||null,
+              adverso:ctx.match(/(?:RÉU|RECLAMADO|REQUERIDO)[:\s]+([^\n,]+)/i)?.[1]?.trim()||null,
+            },
+            movimento: mov?mov[0].trim():null,
+            data: ctx.match(/(\d{2}\/\d{2}\/\d{4})/)?.[1]||null,
+            url:  ctx.match(/https?:\/\/[^\s]+/)?.[0]||null,
+            prazos: typeof LexIAJuridica!=='undefined'?LexIAJuridica.detectarPrazos(ctx):[],
+            tipo_acao: typeof LexIAJuridica!=='undefined'?LexIAJuridica.classificarAcao(ctx)?.tipo:null,
+            raw: ctx.slice(0,400),
+          });
+        });
+        return resultado;
+      }
+      // Fallback: blocos
       const blocos = texto.split(/\n{2,}|-{3,}|_{3,}/);
 
       blocos.forEach(bloco => {
