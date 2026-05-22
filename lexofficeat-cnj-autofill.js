@@ -312,8 +312,8 @@
   function _preencherCampos(d, t) {
     function s(id, val) {
       var el = document.getElementById(id);
-      if (!el || !val) return;
-      el.value = val; el.classList.add('af');
+      if (!el || val === undefined || val === null || val === '') return;
+      el.value = String(val); el.classList.add('af');
       el.dispatchEvent(new Event('input',  {bubbles:true}));
       el.dispatchEvent(new Event('change', {bubbles:true}));
     }
@@ -324,10 +324,8 @@
       for (var i = 0; i < el.options.length; i++) {
         if (el.options[i].value.toUpperCase() === v ||
             el.options[i].text.toUpperCase().includes(v)) {
-          el.selectedIndex = i;
-          el.classList.add('af');
-          el.dispatchEvent(new Event('change', {bubbles:true}));
-          break;
+          el.selectedIndex = i; el.classList.add('af');
+          el.dispatchEvent(new Event('change', {bubbles:true})); break;
         }
       }
     }
@@ -337,42 +335,92 @@
       return a.nome && a.nome.toLowerCase().includes('amilcar');
     });
     var nossoCliente = '', parteAdversa = '', poloNosso = 'AUTOR';
+    var advCliente = '', advAdversario = '';
 
     if (poloAdv && poloAdv.polo) {
       var eAtivo = /ATIVO|AUTOR|RECLAMANTE|EXEQUENTE/i.test(poloAdv.polo);
       nossoCliente = eAtivo ? (d.polo_ativo || '') : (d.polo_passivo || '');
       parteAdversa = eAtivo ? (d.polo_passivo || '') : (d.polo_ativo || '');
       poloNosso    = eAtivo ? 'AUTOR' : 'RÉU';
+      advCliente   = eAtivo ? (d.adv_cliente || '') : (d.adv_adverso || '');
+      advAdversario= eAtivo ? (d.adv_adverso || '') : (d.adv_cliente || '');
     } else {
-      nossoCliente = d.polo_ativo  || '';
-      parteAdversa = d.polo_passivo || '';
+      nossoCliente  = d.polo_ativo   || '';
+      parteAdversa  = d.polo_passivo || '';
+      advCliente    = d.adv_cliente  || '';
+      advAdversario = d.adv_adverso  || '';
     }
 
-    // ── Aba Partes — IDs REAIS do modal ────────────────────────
-    s('f_parte1', nossoCliente);          // Nome do cliente
-    setSel('f_polo', poloNosso);          // Polo: AUTOR ou RÉU
-    s('f_exadv',  parteAdversa);          // Nome parte adversa
+    // Se não achou Amilcar nos advogados, tenta pelos nomes das partes no LexDB
+    if (!nossoCliente && typeof LexSync !== 'undefined') {
+      var procDB = LexSync.DB.findByCNJ(d.cnj);
+      if (procDB) {
+        nossoCliente = nossoCliente || procDB.polo_cliente || '';
+        parteAdversa = parteAdversa || procDB.ex_adverso  || '';
+      }
+    }
 
-    // Tipo da parte adversa (PJ se tiver LTDA/SA/EIRELI etc.)
+    // ── ABA DADOS ──────────────────────────────────────────────
+    s('f_auto',    d.cnj);
+    s('f_acao',    d.tipo_acao);
+    s('f_vara',    d.vara);
+    var comarca = d.comarca || '';
+    if (d.estado && comarca && !comarca.includes('/')) comarca += '/' + d.estado;
+    else if (!comarca && t) comarca = (t.nome||'').replace(/.*—\s*/,'') + (t.uf?'/'+t.uf:'');
+    s('f_comarca', comarca);
+    s('cnj_input_api', d.cnj);
+
+    // Instância / Grau
+    if (d.instancia) s('f_instancia', d.instancia);
+    if (d.tribunal_nome) s('f_tribunal', d.tribunal_nome);
+
+    // Status
+    var stEl = document.getElementById('f_status');
+    if (stEl && d.status) {
+      for (var i=0; i<stEl.options.length; i++){
+        if(stEl.options[i].text.toLowerCase().includes(d.status.toLowerCase())){stEl.selectedIndex=i;break;}
+      }
+    }
+
+    // ── ABA PARTES — IDs REAIS ──────────────────────────────────
+    s('f_parte1',  nossoCliente);
+    setSel('f_polo', poloNosso);
+    s('f_exadv',   parteAdversa);
+
+    // Tipo adverso
     if (parteAdversa) {
-      var isPJ = /LTDA|S\.?A\.?|EIRELI|ME|EPP|S\/A|SOCIEDADE|EMPRESA|CIA|COMPANHIA/i.test(parteAdversa);
+      var isPJ = /LTDA|S\.?A\.?|EIRELI|ME|EPP|S\/A|SOCIEDADE|EMPRESA|CIA\.|COMPANHIA|BANCO|INSTITUTO|FUND\./i.test(parteAdversa);
       setSel('f_tipo_adv', isPJ ? 'PJ' : 'PF');
     }
 
-    // Advogado da parte contrária
+    // Advogado do adverso (campo f_adv_adv)
     var advAdv = d.advogados && d.advogados.find(function(a) {
-      return a.nome && !a.nome.toLowerCase().includes('amilcar');
+      return a.nome && !a.nome.toLowerCase().includes('amilcar') && a.tipo === 'adverso';
     });
-    if (advAdv) {
+    if (!advAdv) {
+      advAdv = d.advogados && d.advogados.find(function(a) {
+        return a.nome && !a.nome.toLowerCase().includes('amilcar');
+      });
+    }
+    if (advAdversario) {
+      s('f_adv_adv', advAdversario);
+    } else if (advAdv) {
       s('f_adv_adv', advAdv.nome + (advAdv.oab ? ' — OAB ' + advAdv.oab : ''));
     }
 
-    // Cria pasta no Drive se novo processo
+    // Assunto nas anotações se vazio
+    if (d.assuntos) {
+      var anEl = document.getElementById('f_anotacoes') || document.getElementById('p_anotacoes');
+      if (anEl && !anEl.value) anEl.value = 'Assunto: ' + d.assuntos + (d.ultima_mov ? '
+Últ. movimentação: ' + d.ultima_mov : '');
+    }
+
+    // Cria pasta no Drive se processo novo
     if (nossoCliente && typeof LexAT !== 'undefined' && LexAT.DRIVE) {
       var procExist = typeof LexSync !== 'undefined' ? LexSync.DB.findByCNJ(d.cnj) : null;
       if (!procExist || !procExist.drive_folder_id) {
-        var nomePasta = nossoCliente + (parteAdversa ? ' vs ' + parteAdversa : '');
-        LexAT.DRIVE.criarPastaCliente(nomePasta.slice(0, 100)).catch(function(){});
+        var nomePasta = (nossoCliente + (parteAdversa ? ' vs ' + parteAdversa : '')).slice(0,100);
+        LexAT.DRIVE.criarPastaCliente(nomePasta).catch(function(){});
       }
     }
 
@@ -445,7 +493,15 @@
     function c(l,v){if(!v)return'';return '<div style="background:var(--surface3);border-radius:6px;padding:5px 8px"><div style="color:var(--text3);font-size:9px">'+l+'</div><div style="color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+v+'">'+v+'</div></div>';}
     var comarca = d.comarca||(t&&t.uf)||'';
     if(d.estado && comarca && !comarca.includes('/')) comarca+='/'+d.estado;
-    h+=c('⚖️ Tipo de Ação',d.tipo_acao)+c('🏛️ Vara/Órgão',d.vara)+c('📍 Comarca',comarca)+c('👤 Polo Ativo',d.polo_ativo)+c('⚔️ Polo Passivo',d.polo_passivo)+c('📊 Status',d.status)+(d.data_inicio?c('📅 Ajuizamento',d.data_inicio.replace('T',' ').slice(0,10)):'')+(d.assuntos?c('📋 Assunto',d.assuntos):'');
+    h+=c('⚖️ Tipo de Ação',d.tipo_acao)+c('🏛️ Vara/Órgão',d.vara)
+      +c('📍 Comarca',comarca)+c('📊 Status',d.status)
+      +c('👤 Cliente/Polo Ativo',d.polo_ativo)+c('⚔️ Adverso/Polo Passivo',d.polo_passivo)
+      +(d.adv_cliente?c('👨‍💼 Adv. Cliente',d.adv_cliente):'')
+      +(d.adv_adverso?c('⚖️ Adv. Adverso',d.adv_adverso):'')
+      +(d.instancia?c('🏢 Instância',d.instancia):'')
+      +(d.data_inicio?c('📅 Ajuizamento',d.data_inicio.replace('T',' ').slice(0,10)):'')
+      +(d.assuntos?c('📋 Assunto',d.assuntos.slice(0,50)):'')
+      +(d.ultima_mov?c('📋 Ult. Mov.',d.ultima_mov.slice(0,50)):'');
     h+='</div>';
 
     // Advogados
