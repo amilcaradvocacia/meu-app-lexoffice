@@ -492,8 +492,13 @@ function preencherCNJSimulado(cnj){
   var el1=document.getElementById('f_auto');if(el1)el1.classList.add('af');
   var el2=document.getElementById('f_comarca');if(el2)el2.classList.add('af');
   var res=document.getElementById('cnj_resultado');
-  if(res)res.innerHTML='<span style="color:var(--teal)">ℹ️ Nº CNJ inserido — preencha os demais campos manualmente ou configure CORS proxy para dados completos.</span>';
-  toast('ℹ️ CNJ inserido — complete os campos manualmente','orange');
+  if(res)res.innerHTML='<span style="color:var(--teal)">🔍 Consultando DataJud...</span>';
+  // Auto-consulta DataJud via módulo de auto-fill
+  if(typeof window.consultarCNJ === 'function'){
+    window.consultarCNJ();
+  } else {
+    if(res)res.innerHTML='<span style="color:var(--teal)">ℹ️ CNJ inserido — clique Consultar para buscar dados completos.</span>';
+  }
 }
 
 // ============================================================
