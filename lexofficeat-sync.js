@@ -309,18 +309,23 @@
 
     _criarProcesso(proc, fonte) {
       const novoProc = {
-        id:          LexDB.newId('proc'),
-        cnj:         proc.cnj,
-        ficha:       this._gerarFicha(),
-        tipo_acao:   proc.tipo_acao || '',
-        area:        proc.area || 'Cível',
-        vara:        proc.vara || '',
-        comarca:     proc.comarca || '',
-        status:      'ativo',
-        polo_cliente: proc.autor || proc.partes?.autor || '',
-        ex_adverso:  proc.adverso || proc.partes?.adverso || '',
-        advogado:    proc.advogado || '',
-        tribunal:    proc.tribunal || '',
+        id:           LexDB.newId('proc'),
+        cnj:          proc.cnj,
+        ficha:        this._gerarFicha(),
+        tipo_acao:    proc.tipo_acao || '',
+        area:         proc.area || 'Cível',
+        vara:         proc.vara || '',
+        comarca:      proc.comarca || '',
+        estado:       proc.estado || 'PR',
+        instancia:    proc.instancia || '1º Grau',
+        tribunal:     proc.tribunal || '',
+        status:       'Em Andamento',
+        polo_cliente:  proc.autor || (proc.partes && proc.partes.autor) || '',
+        polo_processual: proc.polo || 'AUTOR',
+        ex_adverso:   proc.adverso || (proc.partes && proc.partes.adverso) || '',
+        adv_adverso:  proc.adv_adverso || '',
+        adv_cliente:  proc.adv_cliente || proc.advogado || '',
+        assuntos:     proc.assuntos || '',
         fonte_criacao: fonte,
         movimentos:  [{
           data:      proc.data || new Date().toLocaleDateString('pt-BR'),
@@ -351,12 +356,17 @@
 
       // Atualiza campos se vazio
       const updates = { movimentos, updatedAt: new Date().toISOString() };
-      if (!existente.vara      && proc.vara)      updates.vara      = proc.vara;
-      if (!existente.comarca   && proc.comarca)   updates.comarca   = proc.comarca;
-      if (!existente.polo_cliente && (proc.autor || proc.partes?.autor))
-        updates.polo_cliente = proc.autor || proc.partes?.autor;
-      if (!existente.ex_adverso && (proc.adverso || proc.partes?.adverso))
-        updates.ex_adverso = proc.adverso || proc.partes?.adverso;
+      const pAutor   = proc.autor   || (proc.partes && proc.partes.autor)   || '';
+      const pAdverso = proc.adverso || (proc.partes && proc.partes.adverso) || '';
+      if (!existente.vara         && proc.vara)       updates.vara         = proc.vara;
+      if (!existente.comarca      && proc.comarca)    updates.comarca      = proc.comarca;
+      if (!existente.tipo_acao    && proc.tipo_acao)  updates.tipo_acao    = proc.tipo_acao;
+      if (!existente.tribunal     && proc.tribunal)   updates.tribunal     = proc.tribunal;
+      if (!existente.instancia    && proc.instancia)  updates.instancia    = proc.instancia;
+      if (!existente.polo_cliente && pAutor)          updates.polo_cliente = pAutor;
+      if (!existente.ex_adverso   && pAdverso)        updates.ex_adverso   = pAdverso;
+      if (!existente.adv_adverso  && proc.adv_adverso)updates.adv_adverso  = proc.adv_adverso;
+      if (!existente.assuntos     && proc.assuntos)   updates.assuntos     = proc.assuntos;
 
       const atualizado = LexDB.update(LexDB.KEYS.processos, existente.id, updates);
       LexDB.log(`Processo atualizado: ${existente.cnj} via ${fonte}`);
