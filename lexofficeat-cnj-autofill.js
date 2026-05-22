@@ -278,27 +278,26 @@
     _log('🔍 CNJ: '+cnj+' ['+sigla+']'+(temProxy?' via proxy':''));
 
     var dados = null;
+    var dadosLexDB = consultarLexDB(cnj, partes, tribunal);
 
-    // 1. DataJud (só tenta se tiver proxy configurado, ou tenta sem proxy)
+    // 1. DataJud SEMPRE primeiro
     try {
-      _setRes(res,'<span style="color:var(--teal)">📡 DataJud...</span>');
+      _setRes(res,'<span style="color:var(--teal)">📡 DataJud CNJ...</span>');
       dados = await consultarDataJud(cnj, partes);
-      _log('✅ DataJud: dados obtidos');
-    } catch(e) {
-      _log('⚠️ DataJud: '+e.message+((!temProxy)?' — configure o Proxy Cloudflare para resultados completos':''));
-    }
+      _log('✅ DataJud OK');
+    } catch(e) { _log('⚠️ DataJud: '+e.message); }
 
-    // 2. Claude IA + web (se DataJud falhou e tem API key)
+    // 2. Claude IA se DataJud falhou
     if (!dados && localStorage.getItem('lex_anthropic_key')) {
       try {
-        _setRes(res,'<span style="color:var(--blue)">🤖 Consultando via IA...</span>');
-        dados = await consultarIA(cnj, partes, tribunal);
-        _log('✅ IA: dados obtidos');
+        _setRes(res,'<span style="color:var(--blue)">🤖 Buscando via IA...</span>');
+        dados = await consultarViaIA(cnj, partes, tribunal);
+        _log('✅ IA OK');
       } catch(e){ _log('⚠️ IA: '+e.message); }
     }
 
-    // 3. LexDB + CNJ
-    if (!dados) { dados = consultarLexDB(cnj, partes, tribunal); _log('ℹ️ LexDB/parcial'); }
+    // 3. LexDB como último fallback
+    if (!dados) { dados = dadosLexDB; _log('ℹ️ LexDB'); }
 
     _preencherCampos(dados, tribunal);
     _exibirResultado(dados, tribunal, res, partes);
