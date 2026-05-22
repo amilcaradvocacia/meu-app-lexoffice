@@ -483,10 +483,24 @@
         }
       });
 
-      // 5. Atualiza inbox UI se visível
+      // 5. Auto-cria processos para CNJs novos encontrados (não existentes no XLS2)
+      if (typeof window.lexEnhCriarProcessoDePub === 'function') {
+        var pubsNovas = LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes)
+          .filter(function(p){ return p.timestamp && (Date.now() - new Date(p.timestamp).getTime()) < 60000; })
+          .slice(-20);
+        pubsNovas.forEach(function(pub){
+          if (pub.cnj) {
+            setTimeout(function(){
+              window.lexEnhCriarProcessoDePub(pub).catch(function(){});
+            }, 2000);
+          }
+        });
+      }
+
+      // 6. Atualiza inbox UI se visível
       _atualizarInbox(email);
 
-      // 6. Marca como lido
+      // 7. Marca como lido
       marcarComoLido(email.id);
 
       STATE.processados[email.id] = true;
