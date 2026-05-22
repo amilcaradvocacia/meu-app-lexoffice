@@ -304,7 +304,43 @@
         LexAT.DRIVE.criarPastaCliente(nomePasta.slice(0,100)).catch(function(){});
       }
 
-      if (window.toast) window.toast('✨ Processo criado: ' + dadosProc.ficha + ' — ' + (dadosProc.parte1||pub.cnj), 'teal');
+      // Cria prazo de 5 dias para manifestação automaticamente
+      var dataVenc = new Date();
+      dataVenc.setDate(dataVenc.getDate() + 5);
+      var vencStr = dataVenc.toLocaleDateString('pt-BR');
+      var vencISO = dataVenc.toISOString().slice(0,10);
+
+      // Salva prazo no LexDB
+      if (typeof LexSync !== 'undefined') {
+        LexSync.DB.add(LexSync.DB.KEYS.prazos, {
+          id:          LexSync.DB.newId('prazo'),
+          cnj:         dadosProc.cnj,
+          ficha:       dadosProc.ficha,
+          cliente:     dadosProc.parte1,
+          tipo:        'Manifestação (5 dias)',
+          dias:        5,
+          fundamento:  'Prazo automático — publicação',
+          urgencia:    'alta',
+          vencimento:  vencStr,
+          vencimentoISO: vencISO,
+          status:      'pendente',
+          createdAt:   new Date().toISOString(),
+        });
+      }
+
+      // Cria no Google Calendar
+      if (typeof LexAT !== 'undefined' && LexAT.CALENDAR) {
+        LexAT.CALENDAR.criarPrazoFatal({
+          tipo:     'Manifestação',
+          cliente:  dadosProc.parte1 || 'Cliente',
+          processo: dadosProc.cnj    || dadosProc.ficha,
+          data:     vencStr,
+          vara:     dadosProc.vara   || '',
+          advogado: 'Dr. Amilcar Cordeiro Teixeira Filho',
+        }).catch(function(){});
+      }
+
+      if (window.toast) window.toast('✨ Processo ' + dadosProc.ficha + ' criado + prazo 5 dias em ' + vencStr, 'teal');
       return dadosProc;
     };
 
