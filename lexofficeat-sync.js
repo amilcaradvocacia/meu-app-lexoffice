@@ -264,6 +264,7 @@
      * Processa resultado do parser e cria/atualiza processos no LexOffice
      */
     processarPublicacao(parsed) {
+      if (!parsed || !parsed.processos) return { novos:[], atualizados:[], erros:[] };
       const novos = [], atualizados = [], erros = [];
 
       parsed.processos.forEach(proc => {
@@ -303,7 +304,7 @@
       });
 
       LexDB.log(`Parser ${parsed.fonte}: ${novos.length} novos, ${atualizados.length} atualizados, ${erros.length} erros`);
-      return { novos, atualizados, erros };
+      return { novos: novos||[], atualizados: atualizados||[], erros: erros||[] };
     },
 
     _criarProcesso(proc, fonte) {
