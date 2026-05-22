@@ -182,10 +182,20 @@
       status:       _normStatus(src.situacao),
       polo_ativo:   autor?autor.nome:'',
       polo_passivo: reu?reu.nome:'',
-      advogados:    aArr.map(function(a){ return {nome:a.nome,oab:a.numeroOAB||'',polo:a.polo||''}; }),
+      adv_cliente:  aArr.filter(function(a){return /ATIVO|AUTOR|RECLAMANTE/i.test(a.polo||'');})
+                       .map(function(a){return a.nome+(a.numeroOAB?' OAB '+a.numeroOAB:'');}).join('; '),
+      adv_adverso:  aArr.filter(function(a){return /PASSIVO|R[EÉ]U|RECLAMADO/i.test(a.polo||'');})
+                       .map(function(a){return a.nome+(a.numeroOAB?' OAB '+a.numeroOAB:'');}).join('; '),
+      advogados:    aArr.map(function(a){ return {
+        nome:a.nome||'', oab:a.numeroOAB||'', polo:a.polo||'',
+        tipo:/ATIVO|AUTOR|RECLAMANTE/i.test(a.polo||'')?'cliente':'adverso'
+      }; }),
+      tribunal_nome:(src.tribunal&&src.tribunal.nome)||'',
+      instancia:    src.grau||'1º Grau',
       data_inicio:  src.dataAjuizamento||'',
       assuntos:     (src.assuntos||[]).map(function(a){return a.nome;}).join(', '),
-      movimentos:   (src.movimentos||[]).slice(0,5).map(function(m){return {data:m.dataHora,desc:m.nome};})
+      movimentos:   (src.movimentos||[]).slice(0,5).map(function(m){return {data:m.dataHora,desc:m.nome};}),
+      ultima_mov:   (src.movimentos||[]).length?(src.movimentos[0].nome||''):'',
     };
   }
 
