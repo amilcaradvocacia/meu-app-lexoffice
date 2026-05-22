@@ -1,6 +1,6 @@
 /**
- * LexOfficeAT — Enhancements v3.1 FINAL
- * Foco: DataJud completo + publicações → processos automáticos
+ * LexOfficeAT — Enhancements v4.0 DEFINITIVO
+ * IDs confirmados 100% corretos do modal
  */
 (function() {
   'use strict';
@@ -8,8 +8,7 @@
   var PROXY = localStorage.getItem('lex_datajud_proxy') ||
               'https://lexoffice-datajud.amilcaradvocacia.workers.dev';
 
-  // Mapa J.TT → sigla DataJud
-  var DJ_SIGLAS = {
+  var DJ = {
     '8.01':'tjac','8.02':'tjal','8.03':'tjap','8.04':'tjam','8.05':'tjba',
     '8.06':'tjce','8.07':'tjdft','8.08':'tjes','8.09':'tjgo','8.10':'tjma',
     '8.11':'tjmt','8.12':'tjms','8.13':'tjmg','8.14':'tjpa','8.15':'tjpb',
@@ -21,82 +20,125 @@
     '5.11':'trt11','5.12':'trt12','5.13':'trt13','5.14':'trt14','5.15':'trt15',
     '5.16':'trt16','5.17':'trt17','5.18':'trt18','5.19':'trt19','5.20':'trt20',
     '5.21':'trt21','5.22':'trt22','5.23':'trt23','5.24':'trt24',
-    '4.01':'trf1','4.02':'trf2','4.03':'trf3','4.04':'trf4','4.05':'trf5','4.06':'trf6',
-    '3.00':'stj','1.00':'stf','5.00':'tst','6.00':'tse','7.00':'stm'
+    '4.01':'trf1','4.02':'trf2','4.03':'trf3','4.04':'trf4','4.05':'trf5',
+    '3.00':'stj','1.00':'stf','5.00':'tst'
   };
 
-  // Nomes legíveis dos tribunais
-  var TRIB_NOMES = {
-    '8.16':'TJPR — Tribunal de Justiça do Paraná',
-    '5.09':'TRT 9ª Região — Paraná/MS',
-    '5.04':'TRT 4ª Região — Rio Grande do Sul',
-    '5.02':'TRT 2ª Região — São Paulo',
-    '4.04':'TRF 4ª Região — Sul',
-    '3.00':'STJ — Superior Tribunal de Justiça',
-    '5.00':'TST — Tribunal Superior do Trabalho',
-    '1.00':'STF — Supremo Tribunal Federal',
-  };
+  function getKey()    { return localStorage.getItem('lex_anthropic_key')||''; }
+  function getModelo() { return localStorage.getItem('lex_claude_modelo')||'claude-sonnet-4-20250514'; }
 
-  function getKey()    { return localStorage.getItem('lex_anthropic_key') || ''; }
-  function getModelo() { return localStorage.getItem('lex_claude_modelo') || 'claude-sonnet-4-20250514'; }
-
-  function fill(id, val) {
-    if (val === undefined || val === null || val === '') return;
+  // ── setVal exato igual ao sistema original ───────────────
+  function sv(id, val) {
     var el = document.getElementById(id);
-    if (!el) return;
-    el.value = String(val).trim();
-    el.classList.add('af');
-    el.dispatchEvent(new Event('input',  {bubbles:true}));
-    el.dispatchEvent(new Event('change', {bubbles:true}));
+    if (el && (val||val===0)) { el.value = String(val); el.classList.add('af'); }
   }
 
-  function fillSel(id, val) {
+  // ── Seleciona option por VALUE exato ─────────────────────
+  function selByVal(id, val) {
     var el = document.getElementById(id);
     if (!el || el.tagName !== 'SELECT' || !val) return;
-    var v = val.toString().toUpperCase();
-    for (var i = 0; i < el.options.length; i++) {
-      var ot = el.options[i].text.toUpperCase();
-      var ov = el.options[i].value.toUpperCase();
-      if (ov === v || ot === v || ot.startsWith(v.slice(0,4)) || v.includes(ov.slice(0,4))) {
-        el.selectedIndex = i;
-        el.classList.add('af');
-        el.dispatchEvent(new Event('change',{bubbles:true}));
-        return;
-      }
+    for (var i=0; i<el.options.length; i++) {
+      if (el.options[i].value === val) { el.selectedIndex=i; el.classList.add('af'); return; }
     }
   }
 
-  function fillAdv(id, nome) {
-    var el = document.getElementById(id);
+  // ── Seleciona f_resp pelo nome (Dr. Amilcar) ──────────────
+  function selResp() {
+    var el = document.getElementById('f_resp');
     if (!el) return;
-    if (el.tagName === 'SELECT') {
-      var nomeLow = (nome||'').toLowerCase();
-      for (var i = 0; i < el.options.length; i++) {
-        if (el.options[i].text.toLowerCase().includes(nomeLow.slice(0,6))) {
-          el.selectedIndex = i;
-          el.dispatchEvent(new Event('change',{bubbles:true}));
-          return;
-        }
+    for (var i=0; i<el.options.length; i++) {
+      if (el.options[i].text.toLowerCase().includes('amilcar')) {
+        el.selectedIndex=i; el.classList.add('af'); return;
       }
-    } else {
-      fill(id, nome);
     }
   }
 
+  // ── parseCNJ ─────────────────────────────────────────────
   function parseCNJ(cnj) {
-    var c = (cnj||'').replace(/[\s]/g,'');
+    var c = (cnj||'').replace(/\s/g,'');
     var m = c.match(/^(\d{7})-?(\d{2})\.?(\d{4})\.?(\d)\.?(\d{2})\.?(\d{4})$/);
     if (!m) return null;
-    return { n:m[1], d:m[2], ano:m[3], j:m[4], tt:m[5], o:m[6],
-             raw:c, chave:m[4]+'.'+m[5] };
+    return {n:m[1],d:m[2],ano:m[3],j:m[4],tt:m[5],o:m[6],raw:c,chave:m[4]+'.'+m[5]};
+  }
+
+  // ── Busca DataJud ─────────────────────────────────────────
+  async function buscarDJ(cnj) {
+    var p = parseCNJ(cnj);
+    if (!p) throw new Error('CNJ inválido');
+    var sigla = DJ[p.chave]||'tjpr';
+    var body  = JSON.stringify({query:{bool:{should:[
+      {match:{numeroProcesso:cnj}},
+      {term:{'numeroProcesso.keyword':cnj}}
+    ]}},size:1});
+    var resp = await fetch(PROXY+'/api_publica_'+sigla+'/_search',
+      {method:'POST',headers:{'Content-Type':'application/json'},body:body});
+    if (!resp.ok) throw new Error('HTTP '+resp.status);
+    var data = await resp.json();
+    var hits = data&&data.hits&&data.hits.hits;
+    if (!hits||!hits.length) throw new Error('Não encontrado em '+sigla.toUpperCase());
+    var src = hits[0]._source||{};
+    var pArr= src.partes||[], aArr=src.advogados||[], sArr=src.assuntos||[], mArr=src.movimentos||[];
+
+    // Identifica partes por polo
+    var autor = pArr.find(function(p){return /ATIVO|AUTOR|RECLAMANTE|EXEQUENTE|IMPETRANTE|REQUERENTE/i.test(p.polo||'');});
+    var reu   = pArr.find(function(p){return /PASSIVO|R[EÉ]U|RECLAMADO|EXECUTAD|IMPETRADO|REQUERIDO/i.test(p.polo||'');});
+
+    // Dr. Amilcar → nosso cliente
+    var amil = aArr.find(function(a){return a.nome&&a.nome.toLowerCase().includes('amilcar');});
+    var amAtivo = !amil || /ATIVO|AUTOR|RECLAMANTE/i.test((amil&&amil.polo)||'ATIVO');
+
+    var nosso = amAtivo ? (autor?autor.nome:'') : (reu?reu.nome:'');
+    var adv   = amAtivo ? (reu?reu.nome:'')    : (autor?autor.nome:'');
+    var polo  = amAtivo ? 'AUTOR' : 'RÉU';
+
+    var advsA = aArr.filter(function(a){return /ATIVO|AUTOR|RECLAMANTE/i.test(a.polo||'');});
+    var advsP = aArr.filter(function(a){return /PASSIVO|R[EÉ]U|RECLAMADO/i.test(a.polo||'');});
+
+    var orgao  = (src.orgaoJulgador&&src.orgaoJulgador.nome)||'';
+    var mun    = (src.municipio&&src.municipio.nome)||'';
+    var uf     = (src.tribunal&&src.tribunal.uf)||'PR';
+    var grau   = src.grau||'G1';
+    var inst   = grau==='G2'?'2º Grau':grau==='SUP'?'Superior':grau==='JE'?'Juizado Especial':'1º Grau';
+    var trib   = (src.tribunal&&src.tribunal.nome)||'';
+
+    // Tipo da parte adversa
+    var isPJ   = /LTDA|S\.A|EIRELI|\bME\b|\bEPP\b|SOCIEDADE|EMPRESA|CIA\.|BANCO|ESTADO|PREFEITURA|MUNIC[IÍ]PIO|INSTITUTO|AUTARQUIA/i.test(adv||'');
+
+    return {
+      cnj:cnj, fonte:'DataJud ✅', sigla:sigla.toUpperCase(),
+      // Campos do modal DADOS
+      f_acao:    mapTipo((src.classe&&src.classe.nome)||''),
+      f_auto:    cnj,
+      f_vara:    orgao,
+      f_comarca: mun&&uf ? mun+'/'+uf : mun||uf,
+      f_status:  'ativo',
+      // Campos do modal PARTES
+      f_parte1:  nosso,
+      f_polo:    polo,
+      f_exadv:   adv,
+      f_tipo_adv:isPJ?'PJ':'PF',
+      f_adv_adv: advsP.map(function(a){return a.nome+(a.numeroOAB?' OAB '+a.numeroOAB:'');}).join('; '),
+      // Anotações
+      f_anotacoes: (sArr.length?'Assunto: '+sArr.map(function(a){return a.nome;}).join(', '):'')+
+                   (mArr.length?'\nÚlt. mov.: '+mArr[0].nome:''),
+      // Extras
+      instancia: inst, tribunal: trib,
+      adv_cliente: advsA.map(function(a){return a.nome+(a.numeroOAB?' OAB '+a.numeroOAB:'');}).join('; '),
+      data_inicio: src.dataAjuizamento||'',
+      assuntos: sArr.map(function(a){return a.nome;}).join(', '),
+      movimentos: mArr.slice(0,5).map(function(m){return {data:m.dataHora,desc:m.nome};}),
+      ultima_mov: mArr.length?mArr[0].nome:'',
+      nosso_cliente:nosso, adverso:adv, polo_cliente:polo,
+      advsAtivo:advsA, advsPassivo:advsP,
+    };
   }
 
   function mapTipo(c) {
     if (!c) return '';
-    var u = c.toUpperCase();
-    var mapa = [
+    var u=c.toUpperCase();
+    var m=[
       [/RECLAMAT|TRABALHIST/,'RECLAMATÓRIA TRABALHISTA'],
-      [/EXECU.*TRAB|EXECU.*CLT/,'EXECUÇÃO TRABALHISTA'],
+      [/EXECU.*TRAB/,'EXECUÇÃO TRABALHISTA'],
       [/EXECU.*FISCAL/,'EXECUÇÃO FISCAL'],
       [/CUMPRI.*SENTEN/,'CUMPRIMENTO DE SENTENÇA'],
       [/INDENIZ|DANO.*MORAL/,'AÇÃO DE INDENIZAÇÃO'],
@@ -104,477 +146,288 @@
       [/DESPEJO/,'AÇÃO DE DESPEJO'],
       [/ALIMENT/,'AÇÃO DE ALIMENTOS'],
       [/DIV[OÓ]RCIO/,'AÇÃO DE DIVÓRCIO'],
-      [/INVENT[AÁ]RIO/,'INVENTÁRIO'],
       [/HABEAS.*CORPUS/,'HABEAS CORPUS'],
       [/MANDADO.*SEGUR/,'MANDADO DE SEGURANÇA'],
       [/RECUPERA.*JUDICI/,'RECUPERAÇÃO JUDICIAL'],
-      [/USUCAP/,'USUCAPIÃO'],
-      [/REVISIONAL/,'AÇÃO REVISIONAL'],
-      [/MONITÓ|MONITOR/,'AÇÃO MONITÓRIA'],
     ];
-    for (var i=0;i<mapa.length;i++) if(mapa[i][0].test(u)) return mapa[i][1];
+    for(var i=0;i<m.length;i++) if(m[i][0].test(u)) return m[i][1];
     return c;
   }
 
-  function normStatus(sit) {
-    var s=((sit&&sit.nome)||sit||'').toUpperCase();
-    if(/BAIXAD|ARQUIVAD/.test(s)) return 'Arquivado';
-    if(/SUSPEN/.test(s)) return 'Suspenso';
-    return 'Em Andamento';
-  }
-
-  // ── Normaliza retorno do DataJud em objeto completo ──────
-  function normDJ(src, cnj, chave) {
-    if (!src) return null;
-    var pArr = src.partes     || [];
-    var aArr = src.advogados  || [];
-    var sArr = src.assuntos   || [];
-    var mArr = src.movimentos || [];
-
-    // Identifica partes por polo
-    var autor = pArr.find(function(p){ return /ATIVO|AUTOR|RECLAMANTE|EXEQUENTE|IMPETRANTE|REQUERENTE/i.test(p.polo||''); });
-    var reu   = pArr.find(function(p){ return /PASSIVO|R[EÉ]U|RECLAMADO|EXECUTAD|IMPETRADO|REQUERIDO/i.test(p.polo||''); });
-
-    // Identifica Dr. Amilcar e seu polo
-    var amilcar = aArr.find(function(a){ return a.nome && a.nome.toLowerCase().includes('amilcar'); });
-    var amilcarAtivo = !amilcar || /ATIVO|AUTOR|RECLAMANTE/i.test((amilcar&&amilcar.polo)||'ATIVO');
-
-    // Nosso cliente = parte representada por Amilcar
-    var nossoCliente = amilcarAtivo ? (autor&&autor.nome)||'' : (reu&&reu.nome)||'';
-    var adverso      = amilcarAtivo ? (reu&&reu.nome)||''    : (autor&&autor.nome)||'';
-    var poloCliente  = amilcarAtivo ? 'AUTOR' : 'RÉU';
-
-    // Advogados por polo
-    var advsAtivo   = aArr.filter(function(a){ return /ATIVO|AUTOR|RECLAMANTE/i.test(a.polo||''); });
-    var advsPassivo = aArr.filter(function(a){ return /PASSIVO|R[EÉ]U|RECLAMADO/i.test(a.polo||''); });
-    var advCliente  = advsAtivo.map(function(a){ return a.nome+(a.numeroOAB?' — OAB '+a.numeroOAB:''); }).join('; ');
-    var advAdverso  = advsPassivo.map(function(a){ return a.nome+(a.numeroOAB?' — OAB '+a.numeroOAB:''); }).join('; ');
-
-    // Órgão julgador detalhado → Vara
-    var orgao   = (src.orgaoJulgador&&src.orgaoJulgador.nome)||'';
-    var comarca = (src.municipio&&src.municipio.nome)||'';
-    var estado  = (src.tribunal&&src.tribunal.uf)||'PR';
-    var tribNome= (src.tribunal&&src.tribunal.nome)||(TRIB_NOMES[chave]||'');
-
-    // Grau de jurisdição
-    var grau = src.grau || '';
-    var instancia = grau === 'G2' ? '2º Grau' :
-                    grau === 'SUP' ? 'Tribunal Superior' :
-                    grau === 'JE' ? 'Juizado Especial' : '1º Grau';
-
-    return {
-      cnj:           cnj,
-      fonte:         'DataJud ✅',
-      tipo_acao:     mapTipo((src.classe&&src.classe.nome)||''),
-      classe_orig:   (src.classe&&src.classe.nome)||'',
-      vara:          orgao,
-      comarca:       comarca,
-      estado:        estado,
-      comarca_uf:    comarca && estado ? comarca+'/'+estado : (comarca||estado),
-      tribunal:      tribNome,
-      instancia:     instancia,
-      grau:          grau,
-      status:        normStatus(src.situacao),
-      nosso_cliente: nossoCliente,
-      adverso:       adverso,
-      polo_cliente:  poloCliente,
-      polo_ativo:    autor ? autor.nome : '',
-      polo_passivo:  reu   ? reu.nome   : '',
-      adv_cliente:   advCliente,
-      adv_adverso:   advAdverso,
-      advogados:     aArr,
-      data_inicio:   src.dataAjuizamento||'',
-      assuntos:      sArr.map(function(a){return a.nome;}).join(', '),
-      movimentos:    mArr.slice(0,5).map(function(m){return{data:m.dataHora,desc:m.nome};}),
-      ultima_mov:    mArr.length ? mArr[0].nome : '',
-    };
-  }
-
-  // ── Busca no DataJud ──────────────────────────────────────
-  async function dj(cnj) {
-    var p = parseCNJ(cnj);
-    if (!p) throw new Error('CNJ inválido');
-    var sigla = DJ_SIGLAS[p.chave] || 'tjpr';
-    var body  = JSON.stringify({ query:{ bool:{ should:[
-      { match: { numeroProcesso: cnj } },
-      { term:  { 'numeroProcesso.keyword': cnj } }
-    ]}}, size:1 });
-    var url = PROXY + '/api_publica_' + sigla + '/_search';
-    var resp = await fetch(url, { method:'POST', headers:{'Content-Type':'application/json'}, body:body });
-    if (!resp.ok) { var t=await resp.text(); throw new Error('HTTP '+resp.status+': '+t.slice(0,80)); }
-    var data = await resp.json();
-    var hits = data && data.hits && data.hits.hits;
-    if (!hits || !hits.length) throw new Error('Não encontrado em '+sigla.toUpperCase());
-    return normDJ(hits[0]._source, cnj, p.chave);
-  }
-
-  // ── Claude via Worker ─────────────────────────────────────
-  async function claude(messages, max) {
-    var key = getKey();
-    if (!key) throw new Error('Sem API Key Claude');
-    var resp = await fetch(PROXY+'/claude', {
-      method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,'anthropic-version':'2023-06-01'},
-      body: JSON.stringify({ model:getModelo(), max_tokens:max||600, messages:messages })
-    });
-    var data = await resp.json();
-    if (data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    return (data.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('');
-  }
-
-  // ── Preenche TODOS os campos do modal ─────────────────────
+  // ── Preenche modal com dados ──────────────────────────────
   function preencher(d) {
     if (!d) return;
+    // ABA DADOS — IDs confirmados
+    sv('f_auto',    d.f_auto||d.cnj);
+    sv('cnj_input_api', d.f_auto||d.cnj);
+    sv('f_acao',    d.f_acao);
+    sv('f_vara',    d.f_vara);
+    sv('f_comarca', d.f_comarca);
+    selByVal('f_status', d.f_status||'ativo');
+    selResp(); // sempre Dr. Amilcar
 
-    // ABA DADOS
-    fill('f_auto',    d.cnj);
-    fill('cnj_input_api', d.cnj);
-    fill('f_acao',    d.tipo_acao);
-    fill('f_vara',    d.vara);
-    fill('f_comarca', d.comarca_uf || d.comarca);
-    if (d.instancia)  fill('f_instancia', d.instancia);
-    if (d.tribunal)   fill('f_tribunal',  d.tribunal);
+    // ABA PARTES — IDs confirmados
+    sv('f_parte1',  d.f_parte1);
+    selByVal('f_polo', d.f_polo||'AUTOR');
+    sv('f_exadv',   d.f_exadv);
+    selByVal('f_tipo_adv', d.f_tipo_adv||'PF');
+    sv('f_adv_adv', d.f_adv_adv);
 
-    // Status
-    fillSel('f_status', d.status);
-
-    // Advogado responsável → Dr. Amilcar automaticamente
-    var respEl = document.getElementById('f_resp');
-    if (respEl) {
-      for (var i=0;i<respEl.options.length;i++) {
-        if (respEl.options[i].text.toLowerCase().includes('amilcar')) {
-          respEl.selectedIndex=i;
-          respEl.dispatchEvent(new Event('change',{bubbles:true}));
-          break;
-        }
-      }
+    // Anotações
+    if (d.f_anotacoes) {
+      var anEl=document.getElementById('f_anotacoes');
+      if (anEl&&!anEl.value) anEl.value=d.f_anotacoes.trim();
     }
 
-    // Data de ajuizamento
-    if (d.data_inicio) {
-      var dtEl = document.getElementById('f_data')||document.getElementById('f_data_inicio');
-      if (dtEl) {
-        var dt = new Date(d.data_inicio);
-        if (!isNaN(dt)) fill(dtEl.id, dt.toLocaleDateString('pt-BR'));
-      }
+    // Banner
+    var b=document.getElementById('autoFillBanner');
+    if(b){
+      b.style.display='flex';
+      b.innerHTML='<span style="color:var(--green)">✅ '+d.fonte+'</span> — '
+        +'<strong>'+(d.f_parte1||'?')+'</strong>'
+        +(d.f_exadv?' vs <strong>'+d.f_exadv+'</strong>':'')
+        +' | Polo: '+d.f_polo+' | '+d.f_vara;
     }
 
-    // ABA PARTES
-    fill('f_parte1',  d.nosso_cliente || d.polo_ativo);
-    fill('f_exadv',   d.adverso || d.polo_passivo);
-    fillSel('f_polo', d.polo_cliente || 'AUTOR');
-
-    // Tipo adverso PF/PJ
-    var adv = d.adverso || d.polo_passivo || '';
-    var isPJ = /LTDA|S\.A|EIRELI|\bME\b|\bEPP\b|SOCIEDADE|EMPRESA|CIA\.|COMPANHIA|BANCO|INST\.|FUND\.|ESTADO\b|MUNIC[IÍ]PIO|PREF\.|UNIV/i.test(adv);
-    fillSel('f_tipo_adv', isPJ ? 'PJ' : 'PF');
-
-    // Advogado do adverso
-    fill('f_adv_adv', d.adv_adverso);
-
-    // Anotações com assunto + última movimentação
-    var anEl = document.getElementById('f_anotacoes');
-    if (anEl && !anEl.value) {
-      var txt = '';
-      if (d.assuntos)   txt += 'Assunto: ' + d.assuntos + '\n';
-      if (d.ultima_mov) txt += 'Última mov.: ' + d.ultima_mov + '\n';
-      if (d.tribunal)   txt += 'Tribunal: ' + d.tribunal;
-      if (txt) anEl.value = txt.trim();
-    }
+    // Resultado visual
+    var res=document.getElementById('cnj_resultado');
+    if(res) res.innerHTML=renderCard(d);
 
     // Salva no LexDB
-    try {
-      if (typeof LexSync !== 'undefined') {
-        var db = LexSync.DB;
-        var ex = db.findByCNJ(d.cnj);
-        var dados = {
-          cnj:d.cnj, tipo_acao:d.tipo_acao, vara:d.vara,
-          comarca:d.comarca_uf||d.comarca, status:d.status,
-          polo_cliente:d.nosso_cliente||d.polo_ativo,
-          polo_processual:d.polo_cliente,
-          ex_adverso:d.adverso||d.polo_passivo,
-          adv_adverso:d.adv_adverso, adv_cliente:d.adv_cliente,
-          instancia:d.instancia, tribunal:d.tribunal,
-          assuntos:d.assuntos, fonte_consulta:d.fonte,
-          updatedAt:new Date().toISOString()
-        };
-        if (ex) db.update(db.KEYS.processos, ex.id, dados);
-        else { dados.id=db.newId('proc'); dados.createdAt=new Date().toISOString(); db.add(db.KEYS.processos,dados); }
-      }
-    } catch(e) {}
+    salvarDB(d);
 
-    // Pasta Drive
-    if ((d.nosso_cliente||d.polo_ativo) && typeof LexAT !== 'undefined' && LexAT.DRIVE) {
-      var np = ((d.nosso_cliente||d.polo_ativo) + (d.adverso?' vs '+d.adverso:'')).slice(0,100);
+    // Drive
+    if (d.f_parte1&&typeof LexAT!=='undefined'&&LexAT.DRIVE) {
+      var np=(d.f_parte1+(d.f_exadv?' vs '+d.f_exadv:'')).slice(0,100);
       LexAT.DRIVE.criarPastaCliente(np).catch(function(){});
     }
 
-    // Exibe resultado visual
-    var res = document.getElementById('cnj_resultado');
-    if (res) res.innerHTML = renderResultado(d);
-
-    if (window.toast) window.toast('✅ '+d.fonte+' — preenchido!','green');
+    if(window.toast) window.toast('✅ '+d.fonte+' — dados preenchidos!','green');
   }
 
-  function renderResultado(d) {
-    var fc = d.fonte.includes('DataJud')?'var(--green)':d.fonte.includes('Claude')?'var(--blue)':'var(--teal)';
-    function c(l,v){ if(!v) return ''; return '<div style="background:var(--surface3);border-radius:6px;padding:5px 8px"><div style="font-size:9px;color:var(--text3)">'+l+'</div><div style="font-size:11px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+v+'">'+v+'</div></div>'; }
+  function renderCard(d) {
+    function c(l,v){if(!v)return'';return'<div style="background:var(--surface3);border-radius:6px;padding:5px 8px"><div style="font-size:9px;color:var(--text3)">'+l+'</div><div style="font-size:11px;color:var(--text);font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+v+'</div></div>';}
+    var fc=d.fonte.includes('DataJud')?'var(--green)':d.fonte.includes('Claude')?'var(--blue)':'var(--teal)';
     return '<div style="background:var(--surface2);border-radius:10px;padding:11px;margin-top:6px">'
-      +'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">'
+      +'<div style="display:flex;justify-content:space-between;margin-bottom:8px">'
       +'<span style="color:'+fc+';font-size:12px;font-weight:600">'+d.fonte+'</span>'
-      +'<span style="font-size:10px;color:var(--text3)">'+d.instancia+'</span>'
+      +'<span style="font-size:10px;color:var(--teal);background:rgba(62,207,207,.1);padding:2px 7px;border-radius:6px">'+(d.sigla||d.instancia||'')+'</span>'
       +'</div>'
-      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;font-size:11px">'
-      +c('⚖️ Tipo de Ação', d.tipo_acao)
-      +c('🏛️ Vara / Órgão Julgador', d.vara)
-      +c('📍 Comarca/Município', d.comarca_uf||d.comarca)
-      +c('🏢 Tribunal', d.tribunal)
-      +c('👤 Nosso Cliente', d.nosso_cliente||d.polo_ativo)
-      +c('🎯 Polo do Cliente', d.polo_cliente)
-      +c('⚔️ Parte Adversa', d.adverso||d.polo_passivo)
-      +c('📊 Status', d.status)
-      +c('👨‍💼 Adv. do Cliente', d.adv_cliente)
-      +c('⚖️ Adv. da Parte Adversa', d.adv_adverso)
-      +c('📅 Ajuizamento', d.data_inicio?d.data_inicio.slice(0,10):'')
-      +c('📋 Assuntos', d.assuntos?d.assuntos.slice(0,60):'')
+      +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px">'
+      +c('⚖️ Tipo de Ação',d.f_acao)
+      +c('🏛️ Vara / Órgão',d.f_vara)
+      +c('📍 Comarca',d.f_comarca)
+      +c('🏢 Tribunal',d.tribunal||d.instancia)
+      +c('👤 Nosso Cliente',d.f_parte1)
+      +c('🎯 Polo',d.f_polo)
+      +c('⚔️ Parte Adversa',d.f_exadv)
+      +c('📊 Tipo Adverso',d.f_tipo_adv)
+      +c('👨‍💼 Adv. Cliente',d.adv_cliente)
+      +c('⚖️ Adv. Adverso',d.f_adv_adv)
+      +c('📅 Ajuizamento',d.data_inicio?d.data_inicio.slice(0,10):'')
+      +c('📋 Assuntos',d.assuntos?d.assuntos.slice(0,50):'')
       +'</div>'
-      +(d.ultima_mov?'<div style="margin-top:6px;font-size:10px;color:var(--text3)">📌 '+d.ultima_mov.slice(0,80)+'</div>':'')
+      +(d.ultima_mov?'<div style="margin-top:6px;font-size:10px;color:var(--text3)">📌 Ult.mov: '+d.ultima_mov.slice(0,80)+'</div>':'')
       +'</div>';
   }
 
-  // ── consultarCNJ principal ────────────────────────────────
-  window.consultarCNJ = async function() {
-    var cnjEl = document.getElementById('cnj_input_api')||document.getElementById('f_auto');
-    var cnj   = ((cnjEl?cnjEl.value:'')||'').trim();
-    var btn   = document.getElementById('btn_consultar_api');
-    var res   = document.getElementById('cnj_resultado');
-    if (!cnj||cnj.length<15){ if(window.toast)window.toast('⚠️ CNJ inválido','orange'); return; }
-    var p = parseCNJ(cnj);
-    if (!p){ if(window.toast)window.toast('⚠️ Formato inválido','orange'); return; }
-    var sigla = (DJ_SIGLAS[p.chave]||'tjpr').toUpperCase();
-    if(btn){btn.innerHTML='⏳...';btn.disabled=true;}
-    if(res) res.innerHTML='<span style="color:var(--teal)">🔍 Consultando '+sigla+' via DataJud...</span>';
+  function salvarDB(d) {
+    try {
+      if(typeof LexSync==='undefined') return;
+      var db=LexSync.DB, ex=db.findByCNJ(d.cnj);
+      var obj={cnj:d.cnj,tipo_acao:d.f_acao,vara:d.f_vara,comarca:d.f_comarca,
+        status:d.f_status||'ativo',polo_cliente:d.f_parte1,polo_processual:d.f_polo,
+        ex_adverso:d.f_exadv,adv_adverso:d.f_adv_adv,adv_cliente:d.adv_cliente,
+        instancia:d.instancia,tribunal:d.tribunal,assuntos:d.assuntos,
+        fonte_consulta:d.fonte,updatedAt:new Date().toISOString()};
+      if(ex) db.update(db.KEYS.processos,ex.id,obj);
+      else{obj.id=db.newId('proc');obj.createdAt=new Date().toISOString();db.add(db.KEYS.processos,obj);}
+    }catch(e){}
+  }
 
-    var dados = null;
+  // ── consultarCNJ ──────────────────────────────────────────
+  window.consultarCNJ = async function() {
+    var cnjEl=document.getElementById('cnj_input_api')||document.getElementById('f_auto');
+    var cnj=((cnjEl?cnjEl.value:'')||'').trim().replace(/\s/g,'');
+    var btn=document.getElementById('btn_consultar_api');
+    var res=document.getElementById('cnj_resultado');
+    if(!cnj||cnj.length<15){if(window.toast)window.toast('⚠️ CNJ inválido','orange');return;}
+    var p=parseCNJ(cnj);
+    if(!p){if(window.toast)window.toast('⚠️ Formato CNJ inválido','orange');return;}
+    var sig=(DJ[p.chave]||'tjpr').toUpperCase();
+    if(btn){btn.innerHTML='⏳...';btn.disabled=true;}
+    if(res)res.innerHTML='<span style="color:var(--teal)">🔍 DataJud '+sig+'...</span>';
+
+    var d=null;
 
     // 1. DataJud
-    try {
-      dados = await dj(cnj);
-      console.log('[CNJ DataJud]', dados.tipo_acao, '|', dados.vara, '|', dados.nosso_cliente);
-    } catch(e) {
-      console.log('[CNJ DataJud erro]', e.message);
-      if(res) res.innerHTML='<span style="color:var(--orange)">⚠️ DataJud: '+e.message+' — tentando IA...</span>';
-    }
+    try{ d=await buscarDJ(cnj); console.log('[CNJ]',d.f_acao,d.f_vara,d.f_parte1); }
+    catch(e){ console.log('[CNJ DataJud]',e.message); if(res)res.innerHTML='<span style="color:var(--orange)">⚠️ '+e.message+'</span>'; }
 
     // 2. Claude IA
-    if (!dados && getKey()) {
-      try {
-        if(res) res.innerHTML='<span style="color:var(--blue)">🤖 Buscando via Claude IA...</span>';
-        var txt = await claude([{role:'user',content:
-          'Processo '+cnj+'. Extraia do número: J='+p.j+' TT='+p.tt+' Ano='+p.ano+'.\n'+
-          'Retorne APENAS JSON válido:\n'+
-          '{"tipo_acao":"","vara":"","comarca":"","estado":"PR","polo_ativo":"","polo_passivo":"","adv_cliente":"","adv_adverso":"","status":"Em Andamento","instancia":"1º Grau","assuntos":""}'}], 400);
-        var r2 = JSON.parse(txt.replace(/```json|```/g,'').trim());
-        if (r2.tipo_acao||r2.vara||r2.polo_ativo) {
-          dados = Object.assign({ cnj:cnj, fonte:'Claude IA 🤖',
-            nosso_cliente:r2.polo_ativo||'', adverso:r2.polo_passivo||'',
-            polo_cliente:'AUTOR', comarca_uf:(r2.comarca&&r2.estado)?r2.comarca+'/'+r2.estado:'',
-            advogados:[], movimentos:[], ultima_mov:'' }, r2);
+    if(!d&&getKey()){
+      try{
+        if(res)res.innerHTML='<span style="color:var(--blue)">🤖 Claude IA...</span>';
+        var txt=await callClaude([{role:'user',content:'Processo '+cnj+'. J='+p.j+' TT='+p.tt+' Ano='+p.ano+'. Retorne APENAS JSON: {"tipo_acao":"","vara":"","comarca":"","estado":"","polo_ativo":"","polo_passivo":"","adv_adverso":"","status":"Em Andamento","instancia":"1 Grau","assuntos":""}'}],400);
+        var r2=JSON.parse(txt.replace(/```json|```/g,'').trim());
+        if(r2.tipo_acao||r2.vara||r2.polo_ativo){
+          d={cnj:cnj,fonte:'Claude IA 🤖',sigla:sig,
+            f_acao:r2.tipo_acao||'',f_auto:cnj,f_vara:r2.vara||'',
+            f_comarca:(r2.comarca&&r2.estado)?r2.comarca+'/'+r2.estado:r2.comarca||'',
+            f_status:'ativo',f_parte1:r2.polo_ativo||'',f_polo:'AUTOR',
+            f_exadv:r2.polo_passivo||'',f_tipo_adv:'PF',f_adv_adv:r2.adv_adverso||'',
+            f_anotacoes:r2.assuntos?'Assunto: '+r2.assuntos:'',
+            instancia:r2.instancia||'1º Grau',tribunal:'',adv_cliente:'',
+            data_inicio:'',assuntos:r2.assuntos||'',ultima_mov:'',nosso_cliente:r2.polo_ativo,adverso:r2.polo_passivo,polo_cliente:'AUTOR'};
         }
-      } catch(e){ console.log('[CNJ IA erro]', e.message); }
+      }catch(e){console.log('[CNJ IA]',e.message);}
     }
 
     // 3. LexDB
-    if (!dados) {
-      try {
-        if(typeof LexSync!=='undefined'){
-          var db2 = LexSync.DB.findByCNJ(cnj);
-          if(db2) dados={ cnj:cnj, fonte:'LexDB 💾',
-            tipo_acao:db2.tipo_acao||'', vara:db2.vara||'', comarca:db2.comarca||'',
-            comarca_uf:db2.comarca||'', status:db2.status||'Em Andamento',
-            nosso_cliente:db2.polo_cliente||'', adverso:db2.ex_adverso||'',
-            polo_cliente:db2.polo_processual||'AUTOR', adv_cliente:db2.adv_cliente||'',
-            adv_adverso:db2.adv_adverso||'', instancia:db2.instancia||'1º Grau',
-            tribunal:db2.tribunal||'', assuntos:db2.assuntos||'',
-            data_inicio:'', movimentos:[], ultima_mov:'', advogados:[] };
+    if(!d){
+      try{
+        if(typeof LexSync!=='undefined'){var db2=LexSync.DB.findByCNJ(cnj);
+          if(db2)d={cnj:cnj,fonte:'LexDB 💾',sigla:sig,
+            f_acao:db2.tipo_acao||'',f_auto:cnj,f_vara:db2.vara||'',
+            f_comarca:db2.comarca||'',f_status:db2.status||'ativo',
+            f_parte1:db2.polo_cliente||'',f_polo:db2.polo_processual||'AUTOR',
+            f_exadv:db2.ex_adverso||'',f_tipo_adv:'PF',f_adv_adv:db2.adv_adverso||'',
+            f_anotacoes:db2.assuntos?'Assunto: '+db2.assuntos:'',
+            instancia:db2.instancia||'1º Grau',tribunal:db2.tribunal||'',
+            adv_cliente:db2.adv_cliente||'',data_inicio:'',assuntos:db2.assuntos||'',ultima_mov:'',
+            nosso_cliente:db2.polo_cliente,adverso:db2.ex_adverso,polo_cliente:db2.polo_processual||'AUTOR'};
         }
-      } catch(e){}
+      }catch(e){}
     }
 
-    if (!dados) {
-      if(res) res.innerHTML='<span style="color:var(--orange)">❌ Não encontrado. Verifique o CNJ.</span>';
-    } else {
-      preencher(dados);
-    }
+    if(!d){if(res)res.innerHTML='<span style="color:var(--orange)">❌ Não encontrado</span>';}
+    else preencher(d);
     if(btn){btn.innerHTML='🔍 Consultar';btn.disabled=false;}
   };
 
-  // ── Criar processo a partir de publicação ────────────────
-  window.lexCriarDePublicacao = async function(cnj, textoEmail, fonteEmail) {
-    var dados = null;
+  // ── Claude ───────────────────────────────────────────────
+  async function callClaude(msgs, max) {
+    var key=getKey(); if(!key) throw new Error('Sem API Key');
+    var resp=await fetch(PROXY+'/claude',{method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,'anthropic-version':'2023-06-01'},
+      body:JSON.stringify({model:getModelo(),max_tokens:max||500,messages:msgs})});
+    var data=await resp.json();
+    if(data.error) throw new Error(data.error.message||'Erro');
+    return (data.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('');
+  }
 
-    // Tenta DataJud
-    try { dados = await dj(cnj); } catch(e) {}
-
-    // Extrai do texto do e-mail se DataJud falhou
-    if (!dados && textoEmail) {
-      var idx  = textoEmail.indexOf(cnj);
-      var ctx  = textoEmail.slice(Math.max(0,idx-500), idx+600);
-      var pCNJ = parseCNJ(cnj);
-      dados = {
-        cnj:          cnj,
-        fonte:        'E-mail ' + (fonteEmail||''),
-        tipo_acao:    '',
-        vara:         (ctx.match(/(\d+[ªº°]?\s*(?:Vara|VARA)[^\n,]{0,60})/i)||[])[1]||'',
-        comarca:      '',
-        comarca_uf:   '',
-        estado:       'PR',
-        tribunal:     TRIB_NOMES[pCNJ?pCNJ.chave:'']||'',
-        instancia:    '1º Grau',
-        status:       'Em Andamento',
-        polo_ativo:   (ctx.match(/(?:AUTOR[A]?|RECLAMANTE|EXEQUENTE|REQUERENTE)[:\s]+([A-ZÁÉÍÓÚÃÕÇ][^\n,]{3,60})/i)||[])[1]||'',
-        polo_passivo: (ctx.match(/(?:RÉU|RECLAMAD[OA]|EXECUTAD[OA]|REQUERID[OA])[:\s]+([A-ZÁÉÍÓÚÃÕÇ][^\n,]{3,60})/i)||[])[1]||'',
-        adv_cliente:  '',
-        adv_adverso:  '',
-        nosso_cliente:'',
-        adverso:      '',
-        polo_cliente: 'AUTOR',
-        assuntos:     '',
-        data_inicio:  '',
-        movimentos:   [],
-        ultima_mov:   (ctx.match(/(?:PUBLICAÇÃO|Publica[çc]ão|Decis|Despacho|Senten|Acord)[^\n]{5,120}/i)||[])[0]||'',
-        advogados:    [],
-      };
+  // ── Criar processo de publicação ─────────────────────────
+  window.lexCriarProc = async function(cnj, texto, fonte) {
+    if(!cnj) return null;
+    var d=null;
+    try{ d=await buscarDJ(cnj); }catch(e){}
+    if(!d){
+      var p=parseCNJ(cnj); var ctx=(texto||'');
+      var idxC=ctx.indexOf(cnj); if(idxC>=0) ctx=ctx.slice(Math.max(0,idxC-400),idxC+600);
+      d={cnj:cnj,fonte:'E-mail',sigla:p?(DJ[p.chave]||'tjpr').toUpperCase():'?',
+        f_acao:'',f_auto:cnj,
+        f_vara:(ctx.match(/(\d+[ªº]?\s*(?:Vara|VARA)[^\n,]{0,60})/i)||[])[1]||'',
+        f_comarca:'',f_status:'ativo',
+        f_parte1:(ctx.match(/(?:AUTOR[A]?|RECLAMANTE|EXEQUENTE)[:\s]+([A-ZÁÉÍÓÚ][^\n,]{3,60})/i)||[])[1]||'',
+        f_polo:'AUTOR',
+        f_exadv:(ctx.match(/(?:RÉU|RECLAMAD[OA]|EXECUTAD[OA])[:\s]+([A-ZÁÉÍÓÚ][^\n,]{3,60})/i)||[])[1]||'',
+        f_tipo_adv:'PF',f_adv_adv:'',f_anotacoes:'',
+        instancia:'1º Grau',tribunal:'',adv_cliente:'',data_inicio:'',
+        assuntos:'',ultima_mov:(ctx.match(/(?:Publica|Decis|Despacho|Senten)[^\n]{5,100}/i)||[])[0]||'',
+        nosso_cliente:'',adverso:'',polo_cliente:'AUTOR'};
     }
 
-    if (!dados) return null;
+    // Verifica duplicata
+    var existe=false;
+    try{if(typeof LexSync!=='undefined'&&LexSync.DB.findByCNJ(cnj))existe=true;}catch(e){}
+    if(typeof XLS2_DATA!=='undefined')
+      if(XLS2_DATA.some(function(r){return(r[2]||'').replace(/[.\-]/g,'')===cnj.replace(/[.\-]/g,'');})) existe=true;
 
-    // Determina nosso cliente pelo advogado Amilcar
-    var amilcarAdv = dados.advogados && dados.advogados.find(function(a){
-      return a.nome && a.nome.toLowerCase().includes('amilcar');
-    });
-    if (amilcarAdv) {
-      var eAt = /ATIVO|AUTOR|RECLAMANTE/i.test(amilcarAdv.polo||'');
-      dados.nosso_cliente = eAt ? dados.polo_ativo : dados.polo_passivo;
-      dados.adverso       = eAt ? dados.polo_passivo : dados.polo_ativo;
-      dados.polo_cliente  = eAt ? 'AUTOR' : 'RÉU';
-    } else if (!dados.nosso_cliente) {
-      dados.nosso_cliente = dados.polo_ativo;
-      dados.adverso       = dados.polo_passivo;
-    }
+    // Ficha
+    var mx=0;
+    if(typeof XLS2_DATA!=='undefined') XLS2_DATA.forEach(function(r){var n=parseInt((r[0]||'').replace(/\D/g,''));if(!isNaN(n)&&n>mx)mx=n;});
+    try{if(typeof LexSync!=='undefined') LexSync.DB.getAll(LexSync.DB.KEYS.processos).forEach(function(p){var n=parseInt((p.ficha||'').replace(/\D/g,''));if(!isNaN(n)&&n>mx)mx=n;});}catch(e){}
+    var ficha='A'+String(mx+1).padStart(4,'0');
 
-    // Verifica se já existe
-    var existe = false;
-    try { if(typeof LexSync!=='undefined'&&LexSync.DB.findByCNJ(cnj)) existe=true; } catch(e){}
-    if(typeof XLS2_DATA!=='undefined' && XLS2_DATA.some(function(r){return (r[2]||'').replace(/[.\-]/g,'')===cnj.replace(/[.\-]/g,'');})) existe=true;
-
-    // Gera ficha
-    var maxN = 0;
-    if(typeof XLS2_DATA!=='undefined') XLS2_DATA.forEach(function(r){var n=parseInt((r[0]||'').replace(/\D/g,''));if(!isNaN(n)&&n>maxN)maxN=n;});
-    try{if(typeof LexSync!=='undefined') LexSync.DB.getAll(LexSync.DB.KEYS.processos).forEach(function(p){var n=parseInt((p.ficha||'').replace(/\D/g,''));if(!isNaN(n)&&n>maxN)maxN=n;});}catch(e){}
-    var ficha = 'A' + String(maxN+1).padStart(4,'0');
-
-    // Salva no LexDB
-    try {
-      if(typeof LexSync!=='undefined'){
-        var pObj = {
-          id:LexSync.DB.newId('proc'), cnj:cnj, ficha:ficha,
-          tipo_acao:dados.tipo_acao, vara:dados.vara,
-          comarca:dados.comarca_uf||dados.comarca, status:dados.status,
-          polo_cliente:dados.nosso_cliente, polo_processual:dados.polo_cliente,
-          ex_adverso:dados.adverso, adv_adverso:dados.adv_adverso,
-          adv_cliente:dados.adv_cliente, instancia:dados.instancia,
-          tribunal:dados.tribunal, assuntos:dados.assuntos,
-          fonte_criacao:fonteEmail||'publicacao',
-          movimentos:dados.ultima_mov?[{data:new Date().toLocaleDateString('pt-BR'),descricao:dados.ultima_mov,fonte:fonteEmail||''}]:[],
-          createdAt:new Date().toISOString(), updatedAt:new Date().toISOString(),
-        };
-        if(!existe) LexSync.DB.add(LexSync.DB.KEYS.processos, pObj);
-        else{
-          var ex2=LexSync.DB.findByCNJ(cnj);
-          if(ex2&&pObj.movimentos.length) LexSync.DB.update(LexSync.DB.KEYS.processos,ex2.id,{movimentos:pObj.movimentos,updatedAt:pObj.updatedAt});
-        }
+    // Salva
+    try{
+      if(typeof LexSync!=='undefined'&&!existe){
+        var db=LexSync.DB;
+        db.add(db.KEYS.processos,{
+          id:db.newId('proc'),cnj:cnj,ficha:ficha,tipo_acao:d.f_acao,vara:d.f_vara,
+          comarca:d.f_comarca,status:'ativo',polo_cliente:d.f_parte1,polo_processual:d.f_polo,
+          ex_adverso:d.f_exadv,adv_adverso:d.f_adv_adv,adv_cliente:d.adv_cliente,
+          instancia:d.instancia,tribunal:d.tribunal,assuntos:d.assuntos,
+          fonte_criacao:fonte||'publicacao',
+          movimentos:d.ultima_mov?[{data:new Date().toLocaleDateString('pt-BR'),descricao:d.ultima_mov}]:[],
+          createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()
+        });
       }
     }catch(e){}
 
-    // Prazo 5 dias para manifestação
-    var venc=new Date(); venc.setDate(venc.getDate()+5);
-    var vencBR=venc.toLocaleDateString('pt-BR');
+    // Prazo 5 dias
+    var v=new Date(); v.setDate(v.getDate()+5); var vBR=v.toLocaleDateString('pt-BR');
     try{
       if(typeof LexSync!=='undefined'){
         LexSync.DB.add(LexSync.DB.KEYS.prazos,{
           id:LexSync.DB.newId('prazo'),cnj:cnj,ficha:ficha,
-          cliente:dados.nosso_cliente,tipo:'Manifestação — 5 dias',
+          cliente:d.f_parte1,tipo:'Manifestação — 5 dias',
           dias:5,fundamento:'Prazo automático de publicação',urgencia:'alta',
-          vencimento:vencBR,vencimentoISO:venc.toISOString().slice(0,10),
+          vencimento:vBR,vencimentoISO:v.toISOString().slice(0,10),
           status:'pendente',createdAt:new Date().toISOString()
         });
       }
     }catch(e){}
-
-    // Calendar
     try{
-      if(typeof LexAT!=='undefined'&&LexAT.CALENDAR){
-        LexAT.CALENDAR.criarPrazoFatal({
-          tipo:'Manifestação',cliente:dados.nosso_cliente||'Cliente',
-          processo:cnj,data:vencBR,vara:dados.vara||'',
-          advogado:'Dr. Amilcar Cordeiro Teixeira Filho'
+      if(typeof LexAT!=='undefined'&&LexAT.CALENDAR&&d.f_parte1){
+        LexAT.CALENDAR.criarPrazoFatal({tipo:'Manifestação',cliente:d.f_parte1,
+          processo:cnj,data:vBR,vara:d.f_vara||'',advogado:'Dr. Amilcar Cordeiro Teixeira Filho'
         }).catch(function(){});
       }
     }catch(e){}
+    try{
+      if(d.f_parte1&&typeof LexAT!=='undefined'&&LexAT.DRIVE)
+        LexAT.DRIVE.criarPastaCliente((ficha+' — '+d.f_parte1+(d.f_exadv?' vs '+d.f_exadv:'')).slice(0,100)).catch(function(){});
+    }catch(e){}
 
-    // Drive
-    if(dados.nosso_cliente&&typeof LexAT!=='undefined'&&LexAT.DRIVE){
-      LexAT.DRIVE.criarPastaCliente((ficha+' — '+dados.nosso_cliente+(dados.adverso?' vs '+dados.adverso:'')).slice(0,100)).catch(function(){});
-    }
-
-    if(!existe&&window.toast) window.toast('✨ '+ficha+': '+dados.nosso_cliente+' — prazo '+vencBR,'teal');
-    return {ficha:ficha, dados:dados, novo:!existe};
+    if(!existe&&window.toast) window.toast('✨ '+ficha+': '+d.f_parte1+' | prazo '+vBR,'teal');
+    return {ficha:ficha,dados:d,novo:!existe};
   };
 
-  // ── Hook no processamento de e-mails do Gmail ────────────
-  // Intercepta APÓS o parse para criar processos automaticamente
+  // ── Hook AutoFill ─────────────────────────────────────────
   setTimeout(function(){
     if(typeof LexSync==='undefined'||!LexSync.AutoFill) return;
-    var origProc = LexSync.AutoFill.processarPublicacao.bind(LexSync.AutoFill);
-    LexSync.AutoFill.processarPublicacao = function(parsed) {
-      var resultado = origProc(parsed);
-      resultado = resultado || {novos:[],atualizados:[],erros:[]};
-      // Para cada processo extraído, tenta enriquecer via DataJud
-      if (parsed && parsed.processos) {
-        parsed.processos.forEach(function(proc){
-          if (!proc.cnj) return;
+    var orig=LexSync.AutoFill.processarPublicacao.bind(LexSync.AutoFill);
+    LexSync.AutoFill.processarPublicacao=function(parsed){
+      var r=orig(parsed)||{novos:[],atualizados:[],erros:[]};
+      if(parsed&&parsed.processos){
+        parsed.processos.forEach(function(proc,i){
+          if(!proc.cnj) return;
           setTimeout(function(){
-            window.lexCriarDePublicacao(proc.cnj, proc.raw||'', parsed.fonte)
-              .catch(function(){});
-          }, 1000 + Math.random()*2000); // distribui as chamadas
+            window.lexCriarProc(proc.cnj,proc.raw||'',parsed.fonte).catch(function(){});
+          },(i+1)*1500);
         });
       }
-      return resultado;
+      return r;
     };
-    console.log('[Enh] ✅ AutoFill hooked para criar processos via DataJud');
-  }, 2000);
+  },2000);
 
   // ── Testar Claude ─────────────────────────────────────────
   if(window.LexAT){
-    window.LexAT.testarIA = async function(){
+    window.LexAT.testarIA=async function(){
       var st=document.getElementById('lexat_status');
       if(!getKey()){if(st)st.innerHTML='❌ API Key não configurada';return;}
-      if(st)st.innerHTML='🔍 Testando via Worker...';
+      if(st)st.innerHTML='🔍 Testando...';
       try{
-        var txt=await claude([{role:'user',content:'Responda: Claude ativo no LexOfficeAT!'}],50);
-        if(st)st.innerHTML='✅ Claude ativo! Modelo: '+getModelo().replace('claude-','')+' — '+txt;
-        if(window.toast)window.toast('✅ Claude funcionando!','green');
-        var b=document.getElementById('badge-claude');
-        if(b){b.textContent='Ativo ✅';b.className='badge bteal';}
-      }catch(e){
-        if(st)st.innerHTML='❌ '+e.message;
-        if(window.toast)window.toast('❌ '+e.message.slice(0,60),'red');
-      }
+        var txt=await callClaude([{role:'user',content:'Diga: OK!'}],30);
+        if(st)st.innerHTML='✅ Claude: '+getModelo().replace('claude-','')+' — '+txt;
+        if(window.toast)window.toast('✅ Claude OK!','green');
+        var b=document.getElementById('badge-claude');if(b){b.textContent='Ativo ✅';b.className='badge bteal';}
+      }catch(e){if(st)st.innerHTML='❌ '+e.message;if(window.toast)window.toast('❌ '+e.message.slice(0,60),'red');}
     };
   }
 
-  // ── Novo processo com ficha automática ───────────────────
+  // ── Novo processo ─────────────────────────────────────────
   function novoProc(){
     if(typeof openModal==='function') openModal('mProcesso');
     setTimeout(function(){
@@ -583,13 +436,12 @@
       if(typeof XLS2_DATA!=='undefined') XLS2_DATA.forEach(function(r){var n=parseInt((r[0]||'').replace(/\D/g,''));if(!isNaN(n)&&n>mx)mx=n;});
       try{if(typeof LexSync!=='undefined') LexSync.DB.getAll(LexSync.DB.KEYS.processos).forEach(function(p){var n=parseInt((p.ficha||'').replace(/\D/g,''));if(!isNaN(n)&&n>mx)mx=n;});}catch(e){}
       var f='A'+String(mx+1).padStart(4,'0');
-      ['f_acao','f_auto','f_vara','f_comarca','f_parte1','f_exadv','f_cpf_cli',
-       'f_qual_cli','f_cpf_adv','f_qual_adv','f_adv_adv','f_anotacoes']
+      ['f_acao','f_auto','f_vara','f_comarca','f_parte1','f_exadv',
+       'f_cpf_cli','f_qual_cli','f_cpf_adv','f_qual_adv','f_adv_adv','f_anotacoes']
         .forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
-      fill('f_proc',f);
-      fillSel('f_polo','AUTOR'); fillSel('f_tipo_adv','PF'); fillSel('f_status','Em Andamento');
-      var re=document.getElementById('f_resp');
-      if(re)for(var i=0;i<re.options.length;i++){if(re.options[i].text.toLowerCase().includes('amilcar')){re.selectedIndex=i;break;}}
+      sv('f_proc',f);
+      selByVal('f_polo','AUTOR'); selByVal('f_tipo_adv','PF'); selByVal('f_status','ativo');
+      selResp();
       var b=document.getElementById('autoFillBanner');
       if(b){b.style.display='flex';b.innerHTML='✨ Novo — <strong>'+f+'</strong> — Digite o CNJ e Enter';}
       var ci=document.getElementById('cnj_input_api');
@@ -598,45 +450,46 @@
   }
 
   // ── abrirProcessoXLS2 melhorado ──────────────────────────
-  var _orig=window.abrirProcessoXLS2;
+  var _origAb=window.abrirProcessoXLS2;
   window.abrirProcessoXLS2=function(r){
-    if(_orig)_orig(r);
+    if(_origAb)_origAb(r);
     setTimeout(function(){
       try{
         var row=typeof r==='string'?JSON.parse(r):(r||[]);
-        var re=document.getElementById('f_resp');
-        if(re&&!re.value)for(var i=0;i<re.options.length;i++){if(re.options[i].text.toLowerCase().includes('amilcar')){re.selectedIndex=i;break;}}
-        if(!((document.getElementById('f_parte1')||{}).value)&&row[7]) fill('f_parte1',row[7]);
-        if(!((document.getElementById('f_exadv') ||{}).value)&&row[9]){ fill('f_exadv',row[9]); var te=document.getElementById('f_tipo_adv'); if(te)te.value=/LTDA|S\.A|EIRELI|ME |EPP/i.test(row[9]||'')?'PJ':'PF'; }
+        selResp();
+        if(!((document.getElementById('f_parte1')||{}).value)&&row[7]) sv('f_parte1',row[7]);
+        if(!((document.getElementById('f_exadv') ||{}).value)&&row[9]){
+          sv('f_exadv',row[9]);
+          selByVal('f_tipo_adv',/LTDA|S\.A|EIRELI|ME |EPP/i.test(row[9]||'')?'PJ':'PF');
+        }
         var cnj=((document.getElementById('f_auto')||{}).value||'');
         var acao=((document.getElementById('f_acao')||{}).value||'');
-        if(cnj&&!acao){var ci=document.getElementById('cnj_input_api');if(ci)ci.value=cnj;setTimeout(function(){window.consultarCNJ();},400);}
+        if(cnj&&!acao){sv('cnj_input_api',cnj);setTimeout(function(){window.consultarCNJ();},400);}
       }catch(e){}
     },350);
   };
 
   // ── Validação ao salvar ──────────────────────────────────
-  var _oSalv=window.salvarProcesso;
+  var _origSalv=window.salvarProcesso;
   window.salvarProcesso=function(){
     var g=function(id){return((document.getElementById(id)||{}).value||'').trim();};
-    var e2=[{id:'f_proc',n:'Ficha'},{id:'f_auto',n:'CNJ'},{id:'f_acao',n:'Tipo de Ação'},{id:'f_parte1',n:'Cliente'}]
-      .filter(function(c){return !g(c.id);});
-    if(e2.length){
-      if(window.toast)window.toast('⚠️ Obrigatório: '+e2.map(function(c){return c.n;}).join(' · '),'orange');
-      e2.forEach(function(c){var el=document.getElementById(c.id);if(el){el.style.borderColor='var(--red)';el.style.boxShadow='0 0 0 2px rgba(224,92,92,.2)';setTimeout(function(){el.style.borderColor='';el.style.boxShadow='';},3000);}});
+    var er=[{id:'f_proc',n:'Ficha'},{id:'f_auto',n:'CNJ'},{id:'f_acao',n:'Tipo de Ação'},{id:'f_parte1',n:'Cliente'}]
+      .filter(function(c){return!g(c.id);});
+    if(er.length){
+      if(window.toast)window.toast('⚠️ Obrigatório: '+er.map(function(c){return c.n;}).join(' · '),'orange');
+      er.forEach(function(c){var el=document.getElementById(c.id);if(el){el.style.borderColor='var(--red)';setTimeout(function(){el.style.borderColor='';},3000);}});
       if(typeof switchTab==='function'){if(!g('f_proc')||!g('f_auto')||!g('f_acao'))switchTab('dados');else switchTab('partes');}
       return;
     }
-    if(_oSalv)_oSalv();
+    if(_origSalv)_origSalv();
   };
 
-  // ── Publicações no inbox ─────────────────────────────────
-  var _oInbox=window.carregarInbox;
+  // ── Publicações ───────────────────────────────────────────
+  var _origInb=window.carregarInbox;
   window.carregarInbox=function(){
-    if(_oInbox)_oInbox();
+    if(_origInb)_origInb();
     setTimeout(function(){
-      var el=document.getElementById('inboxList');
-      if(!el)return;
+      var el=document.getElementById('inboxList');if(!el)return;
       var pubs=[];
       try{if(typeof LexSync!=='undefined')pubs=(LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes)||[]).slice(-60).reverse();}catch(e){}
       if(!pubs.length)return;
@@ -644,14 +497,13 @@
       pubs.forEach(function(pub){
         var isJB=pub.fonte==='jusbrasil';
         var data=(pub.data||pub.timestamp||'').slice(0,10).split('-').reverse().join('/');
-        html+='<div class="ditem" style="flex-direction:column;align-items:flex-start;gap:3px;margin-bottom:5px;cursor:pointer"'
-          +' onclick="lexVerPub(\''+pub.id+'\')">'
+        html+='<div class="ditem" style="flex-direction:column;gap:3px;margin-bottom:5px;cursor:pointer;animation:fadeIn .3s" onclick="lexVerPub(''+pub.id+'')">'
           +'<div style="display:flex;align-items:center;gap:7px;width:100%">'
           +'<span class="badge '+(isJB?'bo':'bteal')+'" style="font-size:10px">'+(isJB?'JusBrasil':'Impacta')+'</span>'
           +(pub.cnj?'<span style="font-size:10px;color:var(--teal)">'+pub.cnj+'</span>':'')
           +'<span style="font-size:10px;color:var(--text3);margin-left:auto">'+data+'</span>'
           +'</div>'
-          +((pub.movimento||pub.raw||'').slice(0,80)?'<div style="font-size:11px;color:var(--text2);padding-left:2px">'+(pub.movimento||pub.raw||'').slice(0,80)+'...</div>':'')
+          +((pub.movimento||pub.raw||'').slice(0,80)?'<div style="font-size:11px;color:var(--text2);padding-left:2px">'+(pub.movimento||pub.raw||'').slice(0,80)+'</div>':'')
           +'</div>';
       });
       if(html)el.innerHTML=html;
@@ -662,21 +514,21 @@
     try{
       var pub=(LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes)||[]).find(function(p){return p.id===pubId;});
       if(!pub)return;
-      var bodyEl=document.getElementById('emailBody');if(bodyEl)bodyEl.value=pub.raw||pub.movimento||'';
-      var remEl=document.getElementById('emailRem');if(remEl)remEl.value=pub.fonte||'impacta';
-      if(window.toast)window.toast('📋 Clique em Extrair & Processar','blue');
+      var be=document.getElementById('emailBody');if(be)be.value=pub.raw||pub.movimento||'';
+      var re=document.getElementById('emailRem');if(re)re.value=pub.fonte||'impacta';
+      if(window.toast)window.toast('📋 Cole processado — clique Extrair & Processar','blue');
     }catch(e){}
   };
 
-  // ── CSS ──────────────────────────────────────────────────
+  // ── CSS ───────────────────────────────────────────────────
   if(!document.getElementById('lex-css')){
     var s=document.createElement('style');s.id='lex-css';
-    s.textContent='.af{border-color:var(--teal)!important;background:rgba(62,207,207,.04)!important;transition:all .3s}';
+    s.textContent='.af{border-color:var(--teal)!important;background:rgba(62,207,207,.04)!important;}';
     document.head.appendChild(s);
   }
 
-  // ── Init ─────────────────────────────────────────────────
-  function hookBotaoNovo(){
+  // ── Init ──────────────────────────────────────────────────
+  function hookNovo(){
     var btn=document.querySelector('button[onclick="openModal(\'mProcesso\')"]');
     if(!btn||btn._h)return;
     btn._h=true;btn.setAttribute('onclick','');
@@ -684,19 +536,16 @@
   }
 
   function init(){
-    hookBotaoNovo();
+    hookNovo();
     var og=window.go;
-    if(og&&!og._enh){
-      window.go=function(page,el){og(page,el);
-        if(page==='processos')setTimeout(hookBotaoNovo,400);
-        if(page==='emails')setTimeout(function(){if(typeof carregarInbox==='function')carregarInbox();},500);
-      };
-      window.go._enh=true;
+    if(og&&!og._e){
+      window.go=function(pg,el){og(pg,el);
+        if(pg==='processos')setTimeout(hookNovo,400);
+        if(pg==='emails')setTimeout(function(){if(typeof carregarInbox==='function')carregarInbox();},500);
+      };window.go._e=true;
     }
-    console.log('[LexOfficeAT Enhancements v3.1] ✅ DataJud+Claude+AutoCriar+Prazo5d+Amilcar=Cliente');
+    console.log('[LexOfficeAT v4.0] ✅ IDs confirmados: f_proc f_acao f_auto f_vara f_comarca f_resp f_parte1 f_polo f_exadv f_tipo_adv f_adv_adv f_anotacoes');
   }
 
-  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){setTimeout(init,900);});}
-  else{setTimeout(init,900);}
-
+  document.readyState==='loading'?document.addEventListener('DOMContentLoaded',function(){setTimeout(init,900);}):setTimeout(init,900);
 })();
