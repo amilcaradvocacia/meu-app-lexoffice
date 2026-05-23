@@ -32,6 +32,83 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
   <script src="lexofficeat-enhancements.js"></script>
+
+<script>
+// LexOfficeAT — Dashboard Auto-Update
+(function() {
+  function atualizarDashboard() {
+    try {
+      // Prazos próximos
+      var prazosList = document.getElementById('dashPrazos') || document.getElementById('prazosLista');
+      if (prazosList && typeof LexSync !== 'undefined') {
+        var prazos = LexSync.DB.getAll(LexSync.DB.KEYS.prazos) || [];
+        var hoje = new Date();
+        var proximos = prazos
+          .filter(function(p) { return p.status === 'pendente'; })
+          .sort(function(a,b) { return new Date(a.vencimentoISO||a.vencimento) - new Date(b.vencimentoISO||b.vencimento); })
+          .slice(0, 10);
+        if (proximos.length && prazosList) {
+          prazosList.innerHTML = proximos.map(function(p) {
+            var v = new Date(p.vencimentoISO || p.vencimento);
+            var dias = Math.ceil((v - hoje) / 86400000);
+            var cor = dias <= 1 ? 'var(--red)' : dias <= 3 ? 'var(--orange)' : 'var(--teal)';
+            return '<div class="ditem" style="gap:8px">'
+              + '<span style="color:'+cor+';font-weight:600;font-size:13px;min-width:30px">'+dias+'d</span>'
+              + '<div><div style="font-size:12px">'+p.tipo+'</div>'
+              + '<div style="font-size:11px;color:var(--text3)">'+(p.cliente||p.cnj||'')+'</div></div>'
+              + '<span style="font-size:11px;color:var(--text3);margin-left:auto">'+p.vencimento+'</span>'
+              + '</div>';
+          }).join('');
+        }
+      }
+
+      // Publicações recentes no dashboard
+      var pubsEl = document.getElementById('dashPublicacoes') || document.getElementById('kPublicacoes');
+      if (pubsEl && typeof LexSync !== 'undefined') {
+        var pubs = LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes) || [];
+        if (pubsEl.tagName !== 'DIV') {
+          pubsEl.textContent = pubs.length;
+        } else if (pubs.length) {
+          var recentes = pubs.slice(-5).reverse();
+          pubsEl.innerHTML = recentes.map(function(p) {
+            return '<div class="ditem" style="gap:8px">'
+              + '<span class="badge '+(p.fonte==='jusbrasil'?'bo':'bteal')+'" style="font-size:10px">'+(p.fonte==='jusbrasil'?'JusBrasil':'Impacta')+'</span>'
+              + '<div style="font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.cnj||p.movimento||'')+'</div>'
+              + '</div>';
+          }).join('');
+        }
+      }
+
+      // KPIs — processos, prazos, publicações
+      var kp = document.getElementById('kProcessos');
+      var kpz = document.getElementById('kPrazos');
+      var kpb = document.getElementById('kPublicacoes2');
+      if (typeof LexSync !== 'undefined') {
+        var procs = LexSync.DB.getAll(LexSync.DB.KEYS.processos) || [];
+        var prazos2 = LexSync.DB.getAll(LexSync.DB.KEYS.prazos) || [];
+        var pubs2 = LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes) || [];
+        if (kp) kp.textContent = procs.length + (typeof XLS2_DATA !== 'undefined' ? ' / ' + XLS2_DATA.length : '');
+        if (kpz) kpz.textContent = prazos2.filter(function(p){return p.status==='pendente';}).length;
+        if (kpb) kpb.textContent = pubs2.length;
+      }
+    } catch(e) {}
+  }
+
+  // Executa ao carregar e a cada 30 segundos
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(atualizarDashboard, 1500); });
+  } else {
+    setTimeout(atualizarDashboard, 1500);
+  }
+  setInterval(atualizarDashboard, 30000);
+
+  // Também executa ao navegar para o dashboard
+  window.addEventListener('hashchange', function() {
+    if (location.hash === '#dashboard') setTimeout(atualizarDashboard, 300);
+  });
+})();
+</script>
+
 </body><!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><!-- LexOfficeAT v2.1 build:1779390341 --><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>LexOffice 5.0 — Gestão Inteligente de Advocacia</title><script src="https://accounts.google.com/gsi/client" async defer></script><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"><style>:root{--bg:#0a0c10;--surface:#111318;--surface2:#181c24;--surface3:#1e2330;--border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.13);--gold:#c9a84c;--gold2:#e4c97a;--gdim:rgba(201,168,76,0.12);--gglow:rgba(201,168,76,0.25);--text:#f0ede8;--text2:#9fa6b4;--text3:#5c6270;--red:#e05c5c;--green:#4caf82;--blue:#5b8dee;--orange:#e8854a;--purple:#9b72e8;--teal:#3ecfcf;--r:12px;--rl:18px;}*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;}.app{display:flex;height:100vh;}.sidebar{width:252px;min-width:252px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;}.logo-area{padding:22px 20px 14px;border-bottom:1px solid var(--border);}.logo-title{font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--gold2);}.logo-sub{font-size:10px;color:var(--text3);letter-spacing:2px;text-transform:uppercase;margin-top:2px;}.vbadge{display:inline-block;background:var(--gdim);border:1px solid rgba(201,168,76,.3);color:var(--gold);font-size:9px;font-family:'DM Mono',monospace;padding:2px 7px;border-radius:20px;margin-top:6px;letter-spacing:1px;}.user-area{padding:10px 12px;border-bottom:1px solid var(--border);}.user-label{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;}.user-btn{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:12.5px;transition:all .18s;text-align:left;width:100%;margin-bottom:2px;}.user-btn:hover{background:var(--surface2);color:var(--text);}.user-btn.active{background:var(--gdim);border-color:rgba(201,168,76,.25);color:var(--gold2);}.avatar{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex-shrink:0;}nav{flex:1;}.nsec{padding:10px 10px 2px;}.nlabel{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1.5px;padding:0 8px;margin-bottom:3px;}.nitem{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:8px;cursor:pointer;border:none;background:transparent;color:var(--text2);font-family:'DM Sans',sans-serif;font-size:13px;transition:all .18s;width:100%;text-align:left;position:relative;}.nitem:hover{background:var(--surface2);color:var(--text);}.nitem.active{background:var(--gdim);color:var(--gold2);}.nitem.active::before{content:'';position:absolute;left:0;top:20%;height:60%;width:3px;background:var(--gold);border-radius:0 3px 3px 0;}.nico{font-size:15px;width:18px;text-align:center;flex-shrink:0;}.nbadge{margin-left:auto;background:var(--red);color:#fff;font-size:10px;font-weight:600;padding:1px 6px;border-radius:10px;}.nbadge.w{background:var(--orange);}.nbadge.i{background:var(--blue);}.nbadge.t{background:var(--teal);color:#000;}.main{flex:1;overflow-y:auto;display:flex;flex-direction:column;}.topbar{position:sticky;top:0;z-index:5;background:rgba(10,12,16,.93);backdrop-filter:blur(16px);border-bottom:1px solid var(--border);padding:13px 26px;display:flex;align-items:center;gap:12px;}.topbar h1{font-family:'Playfair Display',serif;font-size:20px;font-weight:600;flex:1;}.topbar-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 15px;border-radius:9px;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;border:none;transition:all .18s;}.btn-gold{background:var(--gold);color:#0a0c10;}.btn-gold:hover{background:var(--gold2);transform:translateY(-1px);box-shadow:0 4px 14px var(--gglow);}.btn-ghost{background:transparent;color:var(--text2);border:1px solid var(--border2);}.btn-ghost:hover{background:var(--surface2);color:var(--text);}.btn-ai{background:linear-gradient(135deg,rgba(91,141,238,.18),rgba(155,114,232,.18));color:#a8c4ff;border:1px solid rgba(91,141,238,.3);}.btn-ai:hover{background:linear-gradient(135deg,rgba(91,141,238,.28),rgba(155,114,232,.28));}.btn-teal{background:rgba(62,207,207,.13);color:var(--teal);border:1px solid rgba(62,207,207,.3);}.btn-teal:hover{background:rgba(62,207,207,.22);}.btn-red{background:rgba(224,92,92,.13);color:var(--red);border:1px solid rgba(224,92,92,.3);}.btn-sm{padding:6px 13px;font-size:12px;}.btn-xs{padding:4px 9px;font-size:11px;}.content{padding:22px 26px;flex:1;}.page{display:none;}.page.active{display:block;}.kgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:13px;margin-bottom:22px;}.kcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);padding:17px;position:relative;overflow:hidden;transition:all .2s;}.kcard:hover{border-color:var(--border2);transform:translateY(-2px);}.kcard::after{content:'';position:absolute;top:0;right:0;width:66px;height:66px;border-radius:50%;opacity:.06;background:currentColor;transform:translate(22px,-22px);}.kcard.gold{color:var(--gold);}.kcard.green{color:var(--green);}.kcard.blue{color:var(--blue);}.kcard.red{color:var(--red);}.kcard.purple{color:var(--purple);}.kcard.teal{color:var(--teal);}.kico{font-size:20px;margin-bottom:9px;}.kval{font-family:'Playfair Display',serif;font-size:27px;font-weight:700;color:var(--text);line-height:1;}.klbl{font-size:11px;color:var(--text3);margin-top:3px;text-transform:uppercase;letter-spacing:.9px;}.kdelta{font-size:11px;color:var(--green);margin-top:5px;}.kdelta.neg{color:var(--red);}.sgrid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}.sgrid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px;}.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;}.ch{padding:14px 18px 11px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}.ct{font-family:'Playfair Display',serif;font-size:15px;font-weight:600;}.cb{padding:16px 18px;}table{width:100%;border-collapse:collapse;}thead tr{border-bottom:1px solid var(--border);}th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1.1px;color:var(--text3);padding:0 0 8px;font-weight:500;}td{padding:10px 0;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);vertical-align:middle;}tr:last-child td{border-bottom:none;}tbody tr{transition:background .15s;cursor:pointer;}tbody tr:hover td{color:var(--text);}.tpl{padding-left:18px!important;}.tpr{padding-right:18px!important;}.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;}.bg{background:rgba(76,175,130,.12);color:var(--green);border:1px solid rgba(76,175,130,.25);}.br{background:rgba(224,92,92,.12);color:var(--red);border:1px solid rgba(224,92,92,.25);}.bo{background:rgba(232,133,74,.12);color:var(--orange);border:1px solid rgba(232,133,74,.25);}.bb{background:rgba(91,141,238,.12);color:var(--blue);border:1px solid rgba(91,141,238,.25);}.bp{background:rgba(155,114,232,.12);color:var(--purple);border:1px solid rgba(155,114,232,.25);}.bgold{background:var(--gdim);color:var(--gold);border:1px solid rgba(201,168,76,.3);}.bteal{background:rgba(62,207,207,.12);color:var(--teal);border:1px solid rgba(62,207,207,.3);}.fg{margin-bottom:13px;}label{display:block;font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;font-weight:500;}input,select,textarea{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;outline:none;transition:border .18s;}input:focus,select:focus,textarea:focus{border-color:var(--gold);}input.af{border-color:var(--teal)!important;background:rgba(62,207,207,.05)!important;}select option{background:var(--surface2);}textarea{resize:vertical;min-height:68px;}.fr{display:grid;grid-template-columns:1fr 1fr;gap:11px;}.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:11px;}.moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.76);backdrop-filter:blur(8px);z-index:100;align-items:center;justify-content:center;padding:18px;}.moverlay.open{display:flex;}.modal{background:var(--surface);border:1px solid var(--border2);border-radius:var(--rl);padding:26px;width:560px;max-width:95vw;max-height:90vh;overflow-y:auto;animation:mIn .22s ease;position:relative;}.modal-lg{width:820px;}.modal-xl{width:960px;}@keyframes mIn{from{opacity:0;transform:translateY(16px) scale(.97)}to{opacity:1;transform:none}}.mtitle{font-family:'Playfair Display',serif;font-size:18px;margin-bottom:18px;padding-right:28px;}.mclose{position:absolute;right:16px;top:16px;background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;line-height:1;}.mclose:hover{color:var(--text);}.sbox{display:flex;align-items:center;gap:8px;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:7px 12px;}.sbox input{background:none;border:none;padding:0;flex:1;font-size:13px;color:var(--text);}.aip{background:linear-gradient(135deg,rgba(91,141,238,.07),rgba(155,114,232,.07));border:1px solid rgba(91,141,238,.2);border-radius:var(--rl);padding:16px;margin-bottom:16px;}.aip-title{font-size:13px;font-weight:600;color:#a8c4ff;margin-bottom:10px;}.air{background:var(--surface2);border-radius:var(--r);padding:13px;font-size:13px;color:var(--text2);line-height:1.6;min-height:54px;white-space:pre-wrap;}.air.loading::after{content:'▌';animation:blink 1s infinite;}@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}.dzone{border:2px dashed var(--border2);border-radius:var(--r);padding:26px;text-align:center;cursor:pointer;transition:all .2s;position:relative;}.dzone:hover,.dzone.drag{border-color:var(--gold);background:var(--gdim);}.dzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;}.ditem{display:flex;align-items:center;gap:11px;padding:10px 13px;background:var(--surface2);border-radius:var(--r);border:1px solid var(--border);margin-bottom:7px;transition:all .2s;}.ditem:hover{border-color:var(--border2);}.jcard{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r);padding:13px;margin-bottom:9px;cursor:pointer;transition:all .2s;}.jcard:hover{border-color:var(--border2);transform:translateY(-1px);}.afbanner{background:linear-gradient(135deg,rgba(62,207,207,.1),rgba(62,207,207,.05));border:1px solid rgba(62,207,207,.3);border-radius:var(--r);padding:11px 14px;display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;color:var(--teal);}.pbar{height:4px;background:var(--surface3);border-radius:2px;overflow:hidden;margin-top:5px;}.pfill{height:100%;border-radius:2px;background:var(--gold);transition:width .5s;}.pfill.c{background:var(--red);}.pfill.w{background:var(--orange);}.pfill.ok{background:var(--green);}.tlitem{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--border);}.tlitem:last-child{border-bottom:none;}.tldot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:5px;}.funnel{display:flex;gap:9px;overflow-x:auto;padding-bottom:6px;}.fcol{min-width:155px;background:var(--surface2);border-radius:var(--r);padding:11px;border:1px solid var(--border);}.fcol-t{font-size:10px;text-transform:uppercase;letter-spacing:1.1px;color:var(--text3);margin-bottom:9px;font-weight:500;}.fcard{background:var(--surface3);border:1px solid var(--border);border-radius:8px;padding:10px;margin-bottom:7px;cursor:pointer;transition:all .15s;}.fcard:hover{border-color:var(--border2);transform:translateY(-1px);}.aitem{display:flex;gap:13px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--border);}.aitem:last-child{border-bottom:none;}.adate{background:var(--gdim);border:1px solid rgba(201,168,76,.25);border-radius:9px;padding:7px 10px;text-align:center;min-width:48px;flex-shrink:0;}.adate .d{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--gold2);line-height:1;}.adate .m{font-size:9px;color:var(--gold);text-transform:uppercase;letter-spacing:1px;}.mstats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;}.mstat{background:var(--surface2);border-radius:var(--r);padding:11px 13px;text-align:center;border:1px solid var(--border);}.mstat-v{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;}.mstat-l{font-size:10px;color:var(--text3);margin-top:2px;text-transform:uppercase;letter-spacing:.8px;}.bchart{display:flex;align-items:flex-end;gap:5px;height:64px;margin-top:5px;}.bcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;}.bar{width:100%;border-radius:3px 3px 0 0;background:var(--gdim);border:1px solid rgba(201,168,76,.2);}.blbl{font-size:9px;color:var(--text3);text-align:center;}.chatarea{background:var(--surface2);border-radius:var(--r);border:1px solid var(--border);padding:12px;height:240px;overflow-y:auto;display:flex;flex-direction:column;gap:9px;}.cmsg{max-width:75%;}.cmsg.u{align-self:flex-end;}.cmsg.u .bub{background:var(--gdim);border:1px solid rgba(201,168,76,.25);color:var(--text);}.cmsg.s .bub{background:var(--surface3);border:1px solid var(--border2);color:var(--text);}.bub{padding:8px 12px;border-radius:11px;font-size:12.5px;line-height:1.5;}.mmeta{font-size:10px;color:var(--text3);margin-top:3px;}.u .mmeta{text-align:right;}.xitem{padding:10px 13px;background:var(--surface2);border-radius:8px;border:1px solid var(--border);margin-bottom:6px;cursor:pointer;transition:all .15s;}.xitem:hover{border-color:var(--teal);background:rgba(62,207,207,.05);}.xficha{font-family:'DM Mono',monospace;font-size:11px;color:var(--teal);margin-bottom:2px;}.xname{font-size:13px;color:var(--text);font-weight:500;}.xmeta{font-size:11px;color:var(--text3);margin-top:2px;}.alert{padding:11px 14px;border-radius:var(--r);margin-bottom:13px;display:flex;align-items:center;gap:9px;font-size:12.5px;}.alert-w{background:rgba(232,133,74,.1);border:1px solid rgba(232,133,74,.25);color:var(--orange);}.alert-r{background:rgba(224,92,92,.1);border:1px solid rgba(224,92,92,.25);color:var(--red);}.alert-t{background:rgba(62,207,207,.08);border:1px solid rgba(62,207,207,.25);color:var(--teal);}::-webkit-scrollbar{width:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--surface3);border-radius:2px;}.cnj-panel{background:linear-gradient(135deg,rgba(62,207,207,.08),rgba(62,207,207,.03));border:1px solid rgba(62,207,207,.25);border-radius:var(--r);padding:14px;margin-bottom:14px;}.cnj-title{font-size:12px;font-weight:600;color:var(--teal);text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px;}</style></head><body>
   <script>
     // LexOfficeAT — Proxy DataJud configurado automaticamente
@@ -234,7 +311,7 @@ if(window.LexAT){
 <div id="tabContentDados">
 <!-- Painel CNJ -->
 <div class="cnj-panel"><div class="cnj-title">🔍 Consultar CNJ — Auto-preenchimento</div><div style="display:flex;gap:8px"><input type="text" id="cnj_input_api" placeholder="Ex: 0012345-66.2023.8.16.0019" style="flex:1"><button class="btn btn-teal" id="btn_consultar_api" onclick="consultarCNJ()">🔍 Consultar</button></div><div id="cnj_resultado" style="margin-top:9px;font-size:12px;color:var(--text3)"></div></div>
-<div class="fr"><div class="fg"><label>Ficha / Nº Processo</label><input id="f_proc" type="text" placeholder="Ex: A0053 ou 0012345-66.2023.8.16.0019"></div><div class="fg"><label>Tipo de Ação</label><input id="f_acao" type="text" placeholder="Ex: RECLAMATÓRIA TRABALHISTA"></div></div><div class="fr"><div class="fg"><label>Nº Auto / CNJ</label><input id="f_auto" type="text" placeholder="Ex: 0012345-66.2023.8.16.0019"></div><div class="fg"><label>Status</label><select id="f_status"><option value="ativo">Em Andamento</option><option value="arquivado">Arquivado</option><option value="encerrado">Encerrado</option><option value="suspenso">Suspenso</option></select></div></div><div class="fr"><div class="fg"><label>Vara / Juízo</label><input id="f_vara" type="text" placeholder="Ex: 1ª Vara Cível"></div><div class="fg"><label>Comarca</label><input id="f_comarca" type="text" placeholder="Ex: Ponta Grossa/PR"></div></div><div class="fr"><div class="fg"><label>Advogado Responsável</label><select id="f_resp"></select></div><div class="fg"><label>Acesso Rápido</label><div style="display:flex;gap:7px;margin-top:6px"><button class="btn btn-ghost btn-sm" onclick="abrirProjudiProc()" style="flex:1">⚖️ Projudi</button><button class="btn btn-ghost btn-sm" onclick="abrirESAJProc()" style="flex:1">📋 eSAJ</button></div></div></div></div>
+<div class="fr"><div class="fg"><label>Ficha / Nº Processo</label><input id="f_proc" type="text" placeholder="Ex: A0053 ou 0012345-66.2023.8.16.0019"></div><div class="fg"><label>Tipo de Ação</label><input id="f_acao" type="text" placeholder="Ex: RECLAMATÓRIA TRABALHISTA"></div></div><div class="fr"><div class="fg"><label>Nº Auto / CNJ</label><input id="f_auto" type="text" placeholder="Ex: 0012345-66.2023.8.16.0019"></div><div class="fg"><label>Status</label><select id="f_status"><option value="ativo">Em Andamento</option><option value="arquivado">Arquivado</option><option value="encerrado">Encerrado</option><option value="suspenso">Suspenso</option></select></div></div><div class="fr"><div class="fg"><label>Vara / Juízo</label><input id="f_vara" type="text" placeholder="Ex: 1ª Vara Cível"></div><div class="fg"><label>Comarca</label><input id="f_comarca" type="text" placeholder="Ex: Ponta Grossa/PR"></div></div><div class="fr"><div class="fg"><label>Advogado Responsável</label><select id="f_resp"></select></div><div class="fg"><label>Acesso Rápido</label><div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="abrirProjudiProc()" style="flex:1">⚖️ Projudi</button><button class="btn btn-ghost btn-sm" onclick="abrirESAJProc()" style="flex:1">📋 eSAJ</button><button class="btn btn-ghost btn-sm" onclick="abrirTRT9Proc()" style="flex:1">👷 TRT9</button><button class="btn btn-ghost btn-sm" onclick="abrirPJeProc()" style="flex:1">🏛️ PJe</button></div></div></div></div>
 <div id="tabContentPartes" style="display:none"><div style="background:rgba(201,168,76,.06);border:1px solid rgba(201,168,76,.2);border-radius:10px;padding:14px;margin-bottom:14px"><div style="font-size:12px;color:var(--gold);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">👤 NOSSO CLIENTE</div><div class="fr"><div class="fg"><label>Nome do Cliente</label><input id="f_parte1" type="text" placeholder="Nome completo / Razão Social"></div><div class="fg"><label>Polo Processual</label><select id="f_polo"><option value="AUTOR">AUTOR</option><option value="RÉU">RÉU</option><option value="AMBOS">AUTOR E RÉU</option><option value="TERCEIRO">TERCEIRO INTERESSADO</option></select></div></div><div class="fr"><div class="fg"><label>CPF / CNPJ</label><input id="f_cpf_cli" type="text" placeholder="000.000.000-00"></div><div class="fg"><label>Qualificação</label><input id="f_qual_cli" type="text" placeholder="Ex: comerciante, brasileiro..."></div></div></div><div style="background:rgba(224,92,92,.06);border:1px solid rgba(224,92,92,.2);border-radius:10px;padding:14px"><div style="font-size:12px;color:var(--red);font-weight:600;text-transform:uppercase;letter-spacing:.8px;margin-bottom:10px">⚔️ PARTE ADVERSA</div><div class="fr"><div class="fg"><label>Nome / Razão Social</label><input id="f_exadv" type="text" placeholder="Nome da parte contrária"></div><div class="fg"><label>Tipo</label><select id="f_tipo_adv"><option value="PF">Pessoa Física</option><option value="PJ">Pessoa Jurídica</option><option value="orgao">Órgão Público</option><option value="mp">Ministério Público</option></select></div></div><div class="fr"><div class="fg"><label>CPF / CNPJ</label><input id="f_cpf_adv" type="text" placeholder="000.000.000-00"></div><div class="fg"><label>Qualificação</label><input id="f_qual_adv" type="text" placeholder="Ex: empresa de grande porte..."></div></div><div class="fg"><label>Advogado(s) da Parte Contrária</label><input id="f_adv_adv" type="text" placeholder="Nome e OAB do advogado adverso"></div></div></div>
 <div id="tabContentAnotacoes" style="display:none"><textarea id="f_anotacoes" style="width:100%;min-height:220px;font-size:13px;line-height:1.7;background:var(--surface2);border:1px solid var(--border2);border-radius:9px;padding:12px;color:var(--text);resize:vertical" placeholder="Anotações do processo..."></textarea><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-teal btn-sm" onclick="salvarAnotacao()">💾 Salvar</button><button class="btn btn-ghost btn-sm" onclick="carregarAnotacao()">↻ Recarregar</button><span id="anotacaoStatus" style="font-size:11px;color:var(--text3);align-self:center"></span></div></div>
 <div id="tabContentDocs" style="display:none"><div id="modalDocList" style="min-height:80px;background:var(--surface2);border-radius:9px;border:1px solid var(--border2);padding:12px;margin-bottom:12px"><div style="color:var(--text3);font-size:13px;text-align:center;padding:20px">Nenhum documento anexado ainda.</div></div><label style="display:flex;align-items:center;gap:10px;padding:12px;background:var(--surface2);border:1.5px dashed var(--border2);border-radius:9px;cursor:pointer"><span style="font-size:24px">📁</span><div><div style="font-size:13px;color:var(--text);font-weight:500">Clique para anexar documentos</div><div style="font-size:11px;color:var(--text3)">PDF, DOCX, TXT, JPG</div></div><input type="file" id="modalFileInput" multiple style="display:none" onchange="adicionarDocsModal(this)"></label></div>
@@ -517,6 +594,26 @@ function removerDocModal(ficha,idx){if(!S.docs[ficha])return;S.docs[ficha].splic
 // ============================================================
 function abrirProjudi(){window.open('https://projudi.tjpr.jus.br/projudi/','_blank');}
 function abrirESAJ(){window.open('https://esaj.tjsp.jus.br/cpopg/open.do','_blank');}
+function abrirTRT9Proc(){
+  var cnj=(document.getElementById('f_auto')||{}).value||'';
+  var url=cnj?
+    'https://pje.trt9.jus.br/consultaprocessual/detalhe-processo/'+cnj:
+    'https://pje.trt9.jus.br/consultaprocessual/';
+  window.open(url,'_blank');
+}
+function abrirPJeProc(){
+  var cnj=(document.getElementById('f_auto')||{}).value||'';
+  // Detecta tribunal pelo CNJ
+  if(!cnj){window.open('https://pje.cnj.jus.br/','_blank');return;}
+  var m=cnj.match(/\.(\d)\.(\d{2})\./);
+  if(!m){window.open('https://projudi.tjpr.jus.br/projudi/?numeroProcesso='+cnj,'_blank');return;}
+  var j=m[1],tt=m[2];
+  var urls={'5.09':'https://pje.trt9.jus.br/consultaprocessual/detalhe-processo/'+cnj,
+            '8.16':'https://projudi.tjpr.jus.br/projudi/?numeroProcesso='+cnj,
+            '4.04':'https://eproc.trf4.jus.br/eproc2trf4/controlador.php?acao=processo_selecionar&num_processo='+cnj,
+            '3.00':'https://processo.stj.jus.br/processo/pesquisa/?num_processo='+cnj};
+  window.open(urls[j+'.'+tt]||'https://projudi.tjpr.jus.br/projudi/?numeroProcesso='+cnj,'_blank');
+}
 function abrirProjudiProc(){var auto=(document.getElementById('f_auto')?document.getElementById('f_auto').value:'').trim();var url='https://projudi.tjpr.jus.br/projudi/';if(auto)url+='?numeroProcesso='+encodeURIComponent(auto);window.open(url,'_blank');}
 function abrirESAJProc(){var auto=(document.getElementById('f_auto')?document.getElementById('f_auto').value:'').trim();var url='https://esaj.tjsp.jus.br/cpopg/open.do';if(auto)url+='?processo.codigo='+encodeURIComponent(auto);window.open(url,'_blank');}
 function abrirPJeProc(){window.open('https://pje.tjpr.jus.br/pje/','_blank');}
@@ -605,7 +702,7 @@ function renderPrazosAuto(){var tb=document.getElementById('prazosAutoTb');if(!t
 })();
 </script>
 <script src="lexoffice-fixes.js"></script>
-  <script src="lexofficeat-cnj-autofill.js"></script>
+  
 
 <script id="lex-init-config">
 // Auto-inicializa campos de integração com valores do localStorage
@@ -635,5 +732,82 @@ document.addEventListener('DOMContentLoaded', function() {
   }, 500);
 });
 </script>
-  <script src="lexofficeat-enhancements.js"></script>
+  
+
+<script>
+// LexOfficeAT — Dashboard Auto-Update
+(function() {
+  function atualizarDashboard() {
+    try {
+      // Prazos próximos
+      var prazosList = document.getElementById('dashPrazos') || document.getElementById('prazosLista');
+      if (prazosList && typeof LexSync !== 'undefined') {
+        var prazos = LexSync.DB.getAll(LexSync.DB.KEYS.prazos) || [];
+        var hoje = new Date();
+        var proximos = prazos
+          .filter(function(p) { return p.status === 'pendente'; })
+          .sort(function(a,b) { return new Date(a.vencimentoISO||a.vencimento) - new Date(b.vencimentoISO||b.vencimento); })
+          .slice(0, 10);
+        if (proximos.length && prazosList) {
+          prazosList.innerHTML = proximos.map(function(p) {
+            var v = new Date(p.vencimentoISO || p.vencimento);
+            var dias = Math.ceil((v - hoje) / 86400000);
+            var cor = dias <= 1 ? 'var(--red)' : dias <= 3 ? 'var(--orange)' : 'var(--teal)';
+            return '<div class="ditem" style="gap:8px">'
+              + '<span style="color:'+cor+';font-weight:600;font-size:13px;min-width:30px">'+dias+'d</span>'
+              + '<div><div style="font-size:12px">'+p.tipo+'</div>'
+              + '<div style="font-size:11px;color:var(--text3)">'+(p.cliente||p.cnj||'')+'</div></div>'
+              + '<span style="font-size:11px;color:var(--text3);margin-left:auto">'+p.vencimento+'</span>'
+              + '</div>';
+          }).join('');
+        }
+      }
+
+      // Publicações recentes no dashboard
+      var pubsEl = document.getElementById('dashPublicacoes') || document.getElementById('kPublicacoes');
+      if (pubsEl && typeof LexSync !== 'undefined') {
+        var pubs = LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes) || [];
+        if (pubsEl.tagName !== 'DIV') {
+          pubsEl.textContent = pubs.length;
+        } else if (pubs.length) {
+          var recentes = pubs.slice(-5).reverse();
+          pubsEl.innerHTML = recentes.map(function(p) {
+            return '<div class="ditem" style="gap:8px">'
+              + '<span class="badge '+(p.fonte==='jusbrasil'?'bo':'bteal')+'" style="font-size:10px">'+(p.fonte==='jusbrasil'?'JusBrasil':'Impacta')+'</span>'
+              + '<div style="font-size:11px;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(p.cnj||p.movimento||'')+'</div>'
+              + '</div>';
+          }).join('');
+        }
+      }
+
+      // KPIs — processos, prazos, publicações
+      var kp = document.getElementById('kProcessos');
+      var kpz = document.getElementById('kPrazos');
+      var kpb = document.getElementById('kPublicacoes2');
+      if (typeof LexSync !== 'undefined') {
+        var procs = LexSync.DB.getAll(LexSync.DB.KEYS.processos) || [];
+        var prazos2 = LexSync.DB.getAll(LexSync.DB.KEYS.prazos) || [];
+        var pubs2 = LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes) || [];
+        if (kp) kp.textContent = procs.length + (typeof XLS2_DATA !== 'undefined' ? ' / ' + XLS2_DATA.length : '');
+        if (kpz) kpz.textContent = prazos2.filter(function(p){return p.status==='pendente';}).length;
+        if (kpb) kpb.textContent = pubs2.length;
+      }
+    } catch(e) {}
+  }
+
+  // Executa ao carregar e a cada 30 segundos
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() { setTimeout(atualizarDashboard, 1500); });
+  } else {
+    setTimeout(atualizarDashboard, 1500);
+  }
+  setInterval(atualizarDashboard, 30000);
+
+  // Também executa ao navegar para o dashboard
+  window.addEventListener('hashchange', function() {
+    if (location.hash === '#dashboard') setTimeout(atualizarDashboard, 300);
+  });
+})();
+</script>
+
 </body></html>
