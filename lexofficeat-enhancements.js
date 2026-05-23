@@ -414,16 +414,60 @@
 
   // ── Testar Claude ─────────────────────────────────────────
   if(window.LexAT){
-    window.LexAT.testarIA=async function(){
-      var st=document.getElementById('lexat_status');
-      if(!getKey()){if(st)st.innerHTML='❌ API Key não configurada';return;}
-      if(st)st.innerHTML='🔍 Testando...';
-      try{
-        var txt=await callClaude([{role:'user',content:'Diga: OK!'}],30);
-        if(st)st.innerHTML='✅ Claude: '+getModelo().replace('claude-','')+' — '+txt;
-        if(window.toast)window.toast('✅ Claude OK!','green');
-        var b=document.getElementById('badge-claude');if(b){b.textContent='Ativo ✅';b.className='badge bteal';}
-      }catch(e){if(st)st.innerHTML='❌ '+e.message;if(window.toast)window.toast('❌ '+e.message.slice(0,60),'red');}
+    window.LexAT.testarIA = async function() {
+      var st = document.getElementById('lexat_status');
+      var key = getKey();
+      if (!key) {
+        if(st) st.innerHTML = '❌ Cole a API Key sk-ant-... e clique Salvar Tudo';
+        if(window.toast) window.toast('⚠️ Configure a API Key Claude','orange');
+        return;
+      }
+      if(st) st.innerHTML = '🔍 Testando Claude...';
+      var bodyStr = JSON.stringify({model:getModelo(),max_tokens:60,messages:[{role:'user',content:'OK!'}]});
+      var sucesso = false;
+
+      // Tentativa 1: via proxy Worker
+      try {
+        var r1 = await fetch(PROXY+'/claude',{method:'POST',
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,'anthropic-version':'2023-06-01'},
+          body:bodyStr});
+        var d1 = await r1.json();
+        if (d1.content && d1.content[0]) {
+          if(st) st.innerHTML = '✅ Claude OK via Worker — '+getModelo().replace('claude-','')+' — '+d1.content[0].text;
+          if(window.toast) window.toast('✅ Claude funcionando!','green');
+          var b=document.getElementById('badge-claude');if(b){b.textContent='Ativo ✅';b.className='badge bteal';}
+          sucesso = true;
+        } else if (d1.error) {
+          var m1 = d1.error.message||'';
+          if (m1.includes('credit')) { if(st) st.innerHTML='❌ Saldo insuficiente — console.anthropic.com/billing'; sucesso=true; }
+          else if (m1.includes('key')||m1.includes('invalid')) { if(st) st.innerHTML='❌ API Key inválida'; sucesso=true; }
+        }
+      } catch(e1) {}
+
+      // Tentativa 2: direto na API Anthropic
+      if (!sucesso) {
+        try {
+          var r2 = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+            headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
+            body:bodyStr});
+          var d2 = await r2.json();
+          if (d2.content && d2.content[0]) {
+            if(st) st.innerHTML = '✅ Claude OK (direto) — '+getModelo().replace('claude-','');
+            if(window.toast) window.toast('✅ Claude funcionando!','green');
+            var b2=document.getElementById('badge-claude');if(b2){b2.textContent='Ativo ✅';b2.className='badge bteal';}
+            sucesso = true;
+          } else if (d2.error) {
+            if(st) st.innerHTML = '❌ '+d2.error.message;
+            if(window.toast) window.toast('❌ '+d2.error.message.slice(0,50),'red');
+            sucesso = true;
+          }
+        } catch(e2) {}
+      }
+
+      if (!sucesso) {
+        if(st) st.innerHTML = '⚠️ Worker desatualizado — <a href="https://dash.cloudflare.com" target="_blank" style="color:var(--teal)">Atualize em dash.cloudflare.com</a>';
+        if(window.toast) window.toast('⚠️ Atualize o Cloudflare Worker','orange');
+      }
     };
   }
 
