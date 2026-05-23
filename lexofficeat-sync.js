@@ -211,33 +211,100 @@
         timestamp:  new Date().toISOString(),
       };
 
-      // Jusbrasil formata por blocos separados por linhas
-      // Extrai TODOS os CNJs do e-mail primeiro
-      var allCNJs = [...new Set([...texto.matchAll(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/g)].map(m=>m[1]))];
-      if(allCNJs.length>0){
-        // Processa cada CNJ individualmente
-        allCNJs.forEach(function(cnj){
-          var idx = texto.indexOf(cnj);
-          var ctx = texto.slice(Math.max(0,idx-300), idx+500);
-          var mov = ctx.match(/(?:Publica|Decis|Despacho|Senten|Acord)[^\n]{10,150}/i);
-          resultado.processos.push({
-            cnj: cnj,
-            tribunal: ctx.match(/(TRT\d+|TJ[A-Z]{2}|STJ|STF|TST|TRF\d)/i)?.[1]||null,
-            partes: {
-              autor:  ctx.match(/(?:AUTOR[A]?|RECLAMANTE|REQUERENTE)[:\s]+([^\n,]+)/i)?.[1]?.trim()||null,
-              adverso:ctx.match(/(?:RÉU|RECLAMADO|REQUERIDO)[:\s]+([^\n,]+)/i)?.[1]?.trim()||null,
-            },
-            movimento: mov?mov[0].trim():null,
-            data: ctx.match(/(\d{2}\/\d{2}\/\d{4})/)?.[1]||null,
-            url:  ctx.match(/https?:\/\/[^\s]+/)?.[0]||null,
-            prazos: typeof LexIAJuridica!=='undefined'?LexIAJuridica.detectarPrazos(ctx):[],
-            tipo_acao: typeof LexIAJuridica!=='undefined'?LexIAJuridica.classificarAcao(ctx)?.tipo:null,
-            raw: ctx.slice(0,400),
+      // PARSER BASEADO NO FORMATO REAL DO JUSBRASIL
+      // Formato: "Processo CNJ ... POLO ATIVO ... POLO PASSIVO ... ADVOGADO(A/S) AMILCAR..."
+      const CNJ_RE = /\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g;
+      const blocosSplit = texto.split(/(?=Processo \d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+
+      blocosSplit.slice(1).forEach(bloco => {
+        const cnjM = bloco.match(/(\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4})/);
+        if (!cnjM) return;
+        const cnj = cnjM[1];
+
+        // Vara: linha com "Nª Vara..."
+        const varaM = bloco.match(/([0-9]+[ªº°]?\s*(?:Vara|VARA|Juizado|JUIZADO|Câmara|CÂMARA)[^\n]{0,80})/i);
+        // Tribunal
+        const tribM = bloco.match(/(?:Diário\s+)([^\n]+?)(?:\s*Publicação|\s*NÚMERO)/i);
+        // Classe processual
+        const classeM = bloco.match(/Classe Processual[:\s]+([^\n]+)/i);
+        // Assunto
+        const assuntoM = bloco.match(/Assunto Principal[:\s]+([^\n]+)/i);
+        // Data de disponibilização
+        const dataM = bloco.match(/DATA DE DISPONIBILIZAÇÃO[:\s]+(\d{4}-\d{2}-\d{2})/i);
+
+        // Polo ativo — texto entre "POLO ATIVO" e próximo marcador
+        let poloAtivo = '';
+        const paM = bloco.match(/POLO ATIVO\s+([\s\S]*?)(?=POLO PASSIVO|ADVOGADO|DATA DE|$)/i);
+        if (paM) poloAtivo = paM[1].replace(/\s+/g, ' ').trim().slice(0, 100);
+
+        // Polo passivo — texto entre "POLO PASSIVO" e próximo marcador
+        let poloPassivo = '';
+        const ppM = bloco.match(/POLO PASSIVO\s+([\s\S]*?)(?=ADVOGADO|DATA DE|$)/i);
+        if (ppM) poloPassivo = ppM[1].replace(/\s+/g, ' ').trim().slice(0, 100);
+
+        // Nosso cliente = polo onde AMILCAR está como advogado
+        const advSection = bloco.match(/ADVOGADO\(A\/S\)\s+([\s\S]*?)(?=DATA DE|$)/i);
+        let amilcarPolo = 'ATIVO'; // padrão
+        if (advSection) {
+          // Verifica se Amilcar está no bloco antes ou depois do POLO PASSIVO
+          const advIdx = bloco.indexOf('ADVOGADO(A/S)');
+          const ppIdx  = bloco.indexOf('POLO PASSIVO');
+          // Se POLO PASSIVO aparece antes de ADVOGADO(A/S) e contém o primeiro polo
+          // precisamos ver qual polo o Amilcar representa
+          // Na estrutura do Jusbrasil: POLO ATIVO [partes] POLO PASSIVO [partes] ADVOGADO(A/S) [todos]
+          // O advogado pode estar representando qualquer polo
+          // Heurística: se o único polo preenchido é o passivo, Amilcar representa o passivo
+          if (!poloAtivo && poloPassivo) amilcarPolo = 'PASSIVO';
+          else if (poloAtivo && !poloPassivo) amilcarPolo = 'ATIVO';
+          else amilcarPolo = 'ATIVO'; // padrão para quando ambos existem
+        }
+
+        const nossoCliente  = amilcarPolo === 'PASSIVO' ? poloPassivo : poloAtivo;
+        const parteAdversa  = amilcarPolo === 'PASSIVO' ? poloAtivo   : poloPassivo;
+
+        // Movimentação principal
+        const movM = bloco.match(/(?:Considerando|Trata-se|Vistos|Cite-se|Intimem-se|Determino|Diante do|Pelo exposto|Conheço|Defiro)[^\n]{10,200}/i);
+
+        // Extrai advogados adversos (os que NÃO são Amilcar)
+        const advsAdversos = [];
+        if (advSection) {
+          const advsRaw = advSection[1];
+          const advsArr = advsRaw.split(/\|\s*\d{5,}[^\/]*/);
+          advsArr.forEach(a => {
+            const nome = a.trim().split(/\|/)[0].trim();
+            if (nome && !nome.toLowerCase().includes('amilcar') && nome.length > 3) {
+              advsAdversos.push(nome);
+            }
           });
+        }
+
+        resultado.processos.push({
+          cnj,
+          vara:         varaM ? varaM[1].trim().slice(0, 80) : '',
+          tribunal:     tribM ? tribM[1].trim().slice(0, 60) : 'TJPR',
+          classe:       classeM ? classeM[1].trim().slice(0, 60) : '',
+          assunto:      assuntoM ? assuntoM[1].trim().slice(0, 80) : '',
+          data_pub:     dataM ? dataM[1] : '',
+          partes: {
+            autor:   poloAtivo.slice(0, 80),
+            adverso: poloPassivo.slice(0, 80),
+          },
+          polo_ativo:    poloAtivo.slice(0, 80),
+          polo_passivo:  poloPassivo.slice(0, 80),
+          nosso_cliente: nossoCliente.slice(0, 80),
+          adverso:       parteAdversa.slice(0, 80),
+          polo_nosso:    amilcarPolo,
+          adv_adverso:   advsAdversos.slice(0, 3).join('; ').slice(0, 120),
+          movimento:     movM ? movM[0].trim().slice(0, 150) : '',
+          tipo_acao:     classeM ? classeM[1].trim() : '',
+          raw:           bloco.slice(0, 500),
+          prazos:        (typeof LexIAJuridica !== 'undefined') ? LexIAJuridica.detectarPrazos(bloco) : [],
         });
-        return resultado;
-      }
-      // Fallback: blocos
+      });
+
+      if (resultado.processos.length > 0) return resultado;
+
+      // Fallback: blocos genéricos
       const blocos = texto.split(/\n{2,}|-{3,}|_{3,}/);
 
       blocos.forEach(bloco => {
