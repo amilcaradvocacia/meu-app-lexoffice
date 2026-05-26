@@ -870,7 +870,7 @@ Movimentação: ${movimentacao}. Seja breve, cordial e profissional.`
         // window.go hook removido
 
     // Integra com criarPrazoBtn existente
-    LexAT.integrarPrazoExistente();
+    if(LexAT && typeof LexAT.integrarPrazoExistente === 'function') if(LexAT && typeof LexAT.integrarPrazoExistente === 'function') LexAT.integrarPrazoExistente();
 
     console.log('[LexOfficeAT Improvements v2.0] ✅ Carregado com sucesso.');
     console.log('Módulos ativos: CALENDAR · DRIVE · GMAIL · IA Jurídica');
