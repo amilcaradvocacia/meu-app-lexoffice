@@ -906,7 +906,7 @@
     document.addEventListener('lex:navigate', function(evt) {
       var page = evt && evt.detail && evt.detail.page;
       setTimeout(injetarPainelDados, 400);
-    };
+    });
 
     // Restaura dados salvos nos KPIs do dashboard
     setTimeout(() => {
