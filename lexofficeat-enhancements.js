@@ -29,8 +29,14 @@
 
   // ── setVal exato igual ao sistema original ───────────────
   function sv(id, val) {
+    if (val === undefined || val === null || val === '') return;
     var el = document.getElementById(id);
-    if (el && (val||val===0)) { el.value = String(val); el.classList.add('af'); }
+    if (!el) return;
+    el.value = String(val).trim();
+    el.classList.add('af');
+    // Dispara eventos para garantir que frameworks reajam
+    el.dispatchEvent(new Event('input',  {bubbles:true}));
+    el.dispatchEvent(new Event('change', {bubbles:true}));
   }
 
   // ── Seleciona option por VALUE exato ─────────────────────
@@ -84,8 +90,29 @@
     var reu   = pArr.find(function(p){return /PASSIVO|R[EÉ]U|RECLAMADO|EXECUTAD|IMPETRADO|REQUERIDO/i.test(p.polo||'');});
 
     // Dr. Amilcar → nosso cliente
-    var amil = aArr.find(function(a){return a.nome&&a.nome.toLowerCase().includes('amilcar');});
-    var amAtivo = !amil || /ATIVO|AUTOR|RECLAMANTE/i.test((amil&&amil.polo)||'ATIVO');
+    // Busca Amilcar nos advogados do DataJud
+    var amil = aArr.find(function(a){
+      return a.nome && (
+        a.nome.toLowerCase().includes('amilcar') ||
+        a.nome.toLowerCase().includes('cordeiro teixeira') ||
+        (a.numeroOAB && (a.numeroOAB === '21856' || a.numeroOAB === '21856/PR'))
+      );
+    });
+    var amAtivo;
+    if (amil) {
+      // Amilcar encontrado — usa polo dele
+      amAtivo = /ATIVO|AUTOR|RECLAMANTE|EXEQUENTE/i.test(amil.polo||'');
+    } else {
+      // Amilcar não listado — inferência pelo contexto
+      // No TRT9 (trabalhista): Amilcar geralmente defende RÉUS (empresas)
+      // TJPR (cível): menos previsível — usa AUTOR como padrão conservador
+      var isTrabalhista = /TRABALHIST|RECLAMAT|TRT/i.test(
+        (src.classe&&src.classe.nome)||'' + orgao + trib
+      );
+      // Se trabalhista e polo passivo tem empresa → Amilcar defende réu
+      var passivoPJ = reu && /LTDA|S\.A|EIRELI|TRANSPORTES|LOGÍSTICA|SERVIÇOS|IND\.|COM\./i.test(reu.nome||'');
+      amAtivo = !(isTrabalhista && passivoPJ);
+    }
 
     var nosso = amAtivo ? (autor?autor.nome:'') : (reu?reu.nome:'');
     var adv   = amAtivo ? (reu?reu.nome:'')    : (autor?autor.nome:'');
