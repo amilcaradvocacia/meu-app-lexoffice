@@ -867,11 +867,7 @@ Movimentação: ${movimentacao}. Seja breve, cordial e profissional.`
     setTimeout(injetarBotoesUI, 800);
 
     // Reinjeta ao trocar de página
-    const originalGo = window.go;
-    window.go = function (page, el) {
-      try { if (originalGo) originalGo(page, el);
-      setTimeout(injetarBotoesUI, 300);
-    };
+        // window.go hook removido
 
     // Integra com criarPrazoBtn existente
     LexAT.integrarPrazoExistente();
