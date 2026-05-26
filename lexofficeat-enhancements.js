@@ -288,26 +288,62 @@
     var d=null;
 
     // 1. DataJud
-    try{ d=await buscarDJ(cnj); console.log('[CNJ]',d.f_acao,d.f_vara,d.f_parte1); }
-    catch(e){ console.log('[CNJ DataJud]',e.message); if(res)res.innerHTML='<span style="color:var(--orange)">⚠️ '+e.message+'</span>'; }
+    try{
+      d = await buscarDJ(cnj);
+      // Valida se os dados estao completos — TJPR as vezes retorna apenas codigos numericos
+      var dadosIncompletos = !d.f_acao || !d.f_parte1 ||
+        (d.f_vara && /^\d+$/.test(d.f_vara.trim())); // vara e so numero = codigo
+      if (dadosIncompletos) {
+        console.log('[CNJ] DataJud incompleto, usando Claude IA para enriquecer');
+        d.fonte = 'DataJud+IA';
+      } else {
+        console.log('[CNJ] DataJud OK:', d.f_acao, '|', d.f_vara, '|', d.f_parte1);
+      }
+    }
+    catch(e){
+      console.log('[CNJ DataJud]', e.message);
+      if(res) res.innerHTML='<span style="color:var(--orange)">⚠️ DataJud: '+e.message+'</span>';
+    }
 
-    // 2. Claude IA
-    if(!d&&getKey()){
-      try{
-        if(res)res.innerHTML='<span style="color:var(--blue)">🤖 Claude IA...</span>';
-        var txt=await callClaude([{role:'user',content:'Processo '+cnj+'. J='+p.j+' TT='+p.tt+' Ano='+p.ano+'. Retorne APENAS JSON: {"tipo_acao":"","vara":"","comarca":"","estado":"","polo_ativo":"","polo_passivo":"","adv_adverso":"","status":"Em Andamento","instancia":"1 Grau","assuntos":""}'}],400);
-        var r2=JSON.parse(txt.replace(/```json|```/g,'').trim());
-        if(r2.tipo_acao||r2.vara||r2.polo_ativo){
-          d={cnj:cnj,fonte:'Claude IA 🤖',sigla:sig,
-            f_acao:r2.tipo_acao||'',f_auto:cnj,f_vara:r2.vara||'',
-            f_comarca:(r2.comarca&&r2.estado)?r2.comarca+'/'+r2.estado:r2.comarca||'',
-            f_status:'ativo',f_parte1:r2.polo_ativo||'',f_polo:'AUTOR',
-            f_exadv:r2.polo_passivo||'',f_tipo_adv:'PF',f_adv_adv:r2.adv_adverso||'',
-            f_anotacoes:r2.assuntos?'Assunto: '+r2.assuntos:'',
-            instancia:r2.instancia||'1º Grau',tribunal:'',adv_cliente:'',
-            data_inicio:'',assuntos:r2.assuntos||'',ultima_mov:'',nosso_cliente:r2.polo_ativo,adverso:r2.polo_passivo,polo_cliente:'AUTOR'};
+    // 2. Claude IA — usa quando nao tem dados OU dados incompletos do DataJud
+    var precisaIA = !d || !d.f_acao || !d.f_parte1 ||
+      (d.f_vara && /^\d+$/.test(d.f_vara.trim()));
+    if (precisaIA && getKey()) {
+      try {
+        if(res) res.innerHTML='<span style="color:var(--blue)">🤖 Buscando dados via Claude IA...</span>';
+        var promptCNJ = 'Processo numero '+cnj+' do tribunal '+sig+' ano '+p.ano+'. '
+          + 'Pesquise na internet e retorne APENAS um JSON valido com os dados reais: '
+          + '{"tipo_acao":"ex: RECLAMATORIA TRABALHISTA","vara":"ex: 2a Vara do Trabalho de Ponta Grossa",'
+          + '"comarca":"ex: Ponta Grossa","estado":"PR","polo_ativo":"nome completo do autor",'
+          + '"polo_passivo":"nome completo do reu","adv_adverso":"nome e OAB do advogado adverso",'
+          + '"status":"Em Andamento","instancia":"1 Grau","assuntos":"assunto principal"}';
+        var txt = await callClaude([{role:'user',content:promptCNJ}], 600);
+        var r2  = JSON.parse(txt.replace(/```json|```/g,'').trim());
+        if (r2.tipo_acao || r2.vara || r2.polo_ativo) {
+          // Mescla com dados do DataJud se existirem
+          var dIA = {
+            cnj:cnj, fonte:'Claude IA 🤖', sigla:sig,
+            f_acao:   r2.tipo_acao || (d&&d.f_acao)  || '',
+            f_auto:   cnj,
+            f_vara:   r2.vara      || (d&&d.f_vara)   || '',
+            f_comarca:(r2.comarca&&r2.estado) ? r2.comarca+'/'+r2.estado : (r2.comarca||(d&&d.f_comarca)||''),
+            f_status: 'ativo',
+            f_parte1: r2.polo_ativo  || (d&&d.f_parte1) || '',
+            f_polo:   'AUTOR',
+            f_exadv:  r2.polo_passivo || (d&&d.f_exadv)  || '',
+            f_tipo_adv: /LTDA|S\.A|EIRELI|TRANSPORTES|SERV|BANCO|EMPRESA/.test(r2.polo_passivo||'') ? 'PJ' : 'PF',
+            f_adv_adv:r2.adv_adverso || (d&&d.f_adv_adv) || '',
+            f_anotacoes: r2.assuntos ? 'Assunto: '+r2.assuntos : '',
+            instancia: r2.instancia || '1 Grau',
+            tribunal:'', adv_cliente:'', data_inicio:'',
+            assuntos: r2.assuntos||'', ultima_mov:'',
+            nosso_cliente: r2.polo_ativo||(d&&d.f_parte1)||'',
+            adverso: r2.polo_passivo||(d&&d.f_exadv)||'',
+            polo_cliente:'AUTOR'
+          };
+          d = dIA;
         }
-      }catch(e){console.log('[CNJ IA]',e.message);}
+      } catch(e) { console.log('[CNJ IA]', e.message); }
     }
 
     // 3. LexDB
