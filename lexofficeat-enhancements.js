@@ -581,12 +581,18 @@
 
   function init(){
     hookNovo();
-    var og=window.go;
-    if(og&&!og._e){
-      window.go=function(pg,el){og(pg,el);
-        if(pg==='processos')setTimeout(hookNovo,400);
-        if(pg==='emails')setTimeout(function(){if(typeof carregarInbox==='function')carregarInbox();},500);
-      };window.go._e=true;
+    // Hook go() de forma segura — sem sobrescrever
+    var _goOrig = window.go;
+    if(_goOrig && !_goOrig._e){
+      window.go = function(pg, el){
+        try{ _goOrig(pg, el); }catch(e){ console.warn('go error:', e); }
+        if(pg==='processos') setTimeout(hookNovo, 400);
+        if(pg==='emails') setTimeout(function(){ if(typeof carregarInbox==='function') carregarInbox(); }, 500);
+        if(pg==='dashboard') setTimeout(function(){
+          if(typeof renderPrazosDash==='function') renderPrazosDash();
+        }, 300);
+      };
+      window.go._e = true;
     }
     console.log('[LexOfficeAT v4.0] ✅ IDs confirmados: f_proc f_acao f_auto f_vara f_comarca f_resp f_parte1 f_polo f_exadv f_tipo_adv f_adv_adv f_anotacoes');
   }
