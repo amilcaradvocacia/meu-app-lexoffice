@@ -902,9 +902,9 @@
     setTimeout(injetarPainelDados, 1000);
 
     // Reinjeta ao trocar de página
-    const originalGo = window.go;
-    window.go = function (page, el) {
-      try { if (originalGo) originalGo(page, el); } catch(e) { console.warn('[sync go]', e); }
+    // Usa evento customizado em vez de sobrescrever window.go
+    document.addEventListener('lex:navigate', function(evt) {
+      var page = evt && evt.detail && evt.detail.page;
       setTimeout(injetarPainelDados, 400);
     };
 
