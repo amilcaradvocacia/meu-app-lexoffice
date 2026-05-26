@@ -530,9 +530,13 @@
 
   // ── Publicações ───────────────────────────────────────────
   var _origInb=window.carregarInbox;
+  var _inboxRunning=false;
   window.carregarInbox=function(){
-    if(_origInb)_origInb();
+    if(_inboxRunning)return;
+    _inboxRunning=true;
+    try{ if(_origInb)_origInb(); }catch(e){ console.warn('[inbox]',e); }
     setTimeout(function(){
+      _inboxRunning=false;
       var el=document.getElementById('inboxList');if(!el)return;
       var pubs=[];
       try{if(typeof LexSync!=='undefined')pubs=(LexSync.DB.getAll(LexSync.DB.KEYS.publicacoes)||[]).slice(-60).reverse();}catch(e){}
