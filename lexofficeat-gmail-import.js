@@ -770,8 +770,8 @@
 
     // Re-injeta ao trocar de página
     var goOrig = window.go;
-    window.go = function(page, el) {
-      if (goOrig) goOrig(page, el);
+    window.go = function (page, el) {
+      try { if (goOrig) goOrig(page, el);
       if (page === 'emails') setTimeout(injetarPainelImport, 400);
     };
 
