@@ -904,7 +904,7 @@
     // Reinjeta ao trocar de página
     const originalGo = window.go;
     window.go = function (page, el) {
-      if (originalGo) originalGo(page, el);
+      try { if (originalGo) originalGo(page, el); } catch(e) { console.warn('[sync go]', e); }
       setTimeout(injetarPainelDados, 400);
     };
 
