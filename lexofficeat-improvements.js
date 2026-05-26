@@ -869,7 +869,7 @@ Movimentação: ${movimentacao}. Seja breve, cordial e profissional.`
     // Reinjeta ao trocar de página
     const originalGo = window.go;
     window.go = function (page, el) {
-      if (originalGo) originalGo(page, el);
+      try { if (originalGo) originalGo(page, el);
       setTimeout(injetarBotoesUI, 300);
     };
 
