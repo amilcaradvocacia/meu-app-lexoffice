@@ -774,12 +774,12 @@
       if (page === 'emails') setTimeout(injetarPainelImport, 400);
     });
 
-    // Inicia monitor automaticamente se Gmail já estiver conectado
+    // Monitor NÃO inicia automaticamente — aguarda clique do usuário
+    // Isso evita travamento ao abrir a aba Gmail
     setTimeout(function() {
       if (getToken()) {
-        _log('🔄 Gmail já conectado — iniciando monitor automático');
-        iniciarMonitor();
-        executarCiclo(); // Importa imediatamente
+        _log('✅ Gmail conectado — clique em Importar para buscar publicações');
+        // Não inicia automaticamente para não travar a UI
       }
     }, 2000);
 
