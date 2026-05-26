@@ -420,8 +420,7 @@
     // Assunto nas anotações se vazio
     if (d.assuntos) {
       var anEl = document.getElementById('f_anotacoes') || document.getElementById('p_anotacoes');
-      if (anEl && !anEl.value) anEl.value = 'Assunto: ' + d.assuntos + (d.ultima_mov ? '
-Últ. movimentação: ' + d.ultima_mov : '');
+      if (anEl && !anEl.value) anEl.value = 'Assunto: ' + d.assuntos + (d.ultima_mov ? '\nÚlt. movimentação: ' + d.ultima_mov : '');
     }
 
     // Cria pasta no Drive se processo novo
