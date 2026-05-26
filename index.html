@@ -532,93 +532,39 @@ function aiDoc(tipo){var el=document.getElementById('aiDocResp');if(!el)return;e
 // ============================================================
 async function buscarJurisIA(){
   var tema=(document.getElementById('jurisBusca')||{value:''}).value.trim();
-  if(!tema){toast('Digite um tema jurídico','orange');return;}
+  if(!tema){toast('Digite um tema juridico','orange');return;}
   var el=document.getElementById('jurisResp');
   if(!el)return;
-  el.innerHTML='<span style="color:var(--teal)">🔍 Pesquisando com Claude + JUSRATIO...</span>';
-
+  el.innerHTML='<span style="color:var(--teal)">Pesquisando com Claude...</span>';
   var key=localStorage.getItem('lex_anthropic_key');
   var proxy=localStorage.getItem('lex_datajud_proxy')||'https://lexoffice-datajud.amilcaradvocacia.workers.dev';
-
-  if(!key){
-    el.innerHTML='<span style="color:var(--orange)">⚠️ Configure a API Key do Claude nas Integrações para pesquisa real.</span>';
-    return;
-  }
-
-  // Usa Claude com web_search + base JUSRATIO local
-  var jurisLocal = '';
-  if(typeof LexIAJuridica!=='undefined'){
-    var teses = LexIAJuridica.sugerirTeses('Geral', tema);
-    if(teses&&teses.length){
-      jurisLocal = '
-
-Base JUSRATIO/LexIA local:
-' + teses.slice(0,3).map(function(t,i){
-        return (i+1)+'️⃣ '+t.tribunal+' — '+t.tese.slice(0,100)+'...';
-      }).join('
-');
-    }
-  }
-
-  var prompt = 'Pesquise jurisprudência brasileira sobre: "'+tema+'"
-
-'
-    + 'Forneça:
-'
-    + '1. 3-5 decisões relevantes (STJ, STF, TJPR, TRTs) com número do processo, relator, data e ementa
-'
-    + '2. Tendência jurisprudencial predominante
-'
-    + '3. Teses consolidadas (se houver súmulas/repetitivos)
-'
-    + '4. Indicação se há divergência entre tribunais
-
-'
-    + 'Foque em decisões recentes (2022-2026) e no contexto do Paraná quando relevante.'
-    + jurisLocal;
-
-  try {
-    var resp = await fetch(proxy+'/claude', {method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,'anthropic-version':'2023-06-01'},
-      body: JSON.stringify({
-        model: localStorage.getItem('lex_claude_modelo')||'claude-sonnet-4-20250514',
-        max_tokens: 1500,
-        tools: [{type:'web_search_20250305',name:'web_search'}],
-        system: 'Você é um especialista em jurisprudência brasileira. Forneça pesquisas precisas e atualizadas com números de processo reais quando disponíveis.',
-        messages: [{role:'user',content:prompt}]
-      })
+  if(!key){el.innerHTML='Configure a API Key Claude nas Integracoes.';return;}
+  var prompt='Pesquise jurisprudencia brasileira sobre: "'+tema+'". Forneca 3-5 decisoes relevantes do STJ, STF, TJPR ou TRTs com numero, data e ementa. Foque em 2022-2026.';
+  try{
+    var body=JSON.stringify({
+      model:localStorage.getItem('lex_claude_modelo')||'claude-sonnet-4-20250514',
+      max_tokens:1500,
+      tools:[{type:'web_search_20250305',name:'web_search'}],
+      system:'Especialista em jurisprudencia brasileira.',
+      messages:[{role:'user',content:prompt}]
     });
-    var data = await resp.json();
-    if(data.error){
-      el.innerHTML='<span style="color:var(--red)">❌ '+data.error.message+'</span>';
-      return;
-    }
-    var txt = (data.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('');
-    if(txt){
-      // Formata o resultado
-      txt = txt.replace(/\n/g,'<br>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
-      el.innerHTML='<div style="line-height:1.7;font-size:13px">'+txt+'</div>';
-    } else {
-      // Fallback: tenta direto na API
-      var resp2 = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
-        headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01'},
-        body: JSON.stringify({model:localStorage.getItem('lex_claude_modelo')||'claude-sonnet-4-20250514',max_tokens:1500,
-          tools:[{type:'web_search_20250305',name:'web_search'}],
-          system:'Especialista em jurisprudência brasileira.',
-          messages:[{role:'user',content:prompt}]})
-      });
-      var data2 = await resp2.json();
-      var txt2=(data2.content||[]).filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('');
-      el.innerHTML='<div style="line-height:1.7;font-size:13px">'+(txt2||'Sem resultado').replace(/\n/g,'<br>')+'</div>';
-    }
-  } catch(e) {
-    el.innerHTML='<span style="color:var(--red)">❌ Erro: '+e.message+'</span>';
-  }
+    var resp=await fetch(proxy+'/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+key,'anthropic-version':'2023-06-01'},
+      body:body
+    });
+    var data=await resp.json();
+    if(data.error){el.innerHTML='Erro: '+data.error.message;return;}
+    var partes=data.content||[];
+    var txt=partes.filter(function(c){return c.type==='text';}).map(function(c){return c.text;}).join('');
+    if(!txt){el.innerHTML='Sem resultado.';return;}
+    var html=txt.split('\n').map(function(l){
+      return l.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+    }).join('<br>');
+    el.innerHTML='<div style="line-height:1.7;font-size:13px">'+html+'</div>';
+  }catch(e){el.innerHTML='Erro: '+e.message;}
 }
 
-// ============================================================
-// CHAT SUPORTE
-// ============================================================
 function enviarChat(){var inp=document.getElementById('chatInput');var msg=(inp||{value:''}).value.trim();if(!msg)return;var area=document.getElementById('chatArea');if(!area)return;var now=new Date();var t=now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');area.innerHTML+='<div class="cmsg u"><div class="bub">'+msg+'</div><div class="mmeta">Você · '+t+'</div></div>';if(inp)inp.value='';area.scrollTop=area.scrollHeight;setTimeout(function(){area.innerHTML+='<div class="cmsg s"><div class="bub">Mensagem recebida! Nossa equipe responderá em breve.</div><div class="mmeta">Suporte · '+t+'</div></div>';area.scrollTop=area.scrollHeight;},1000);}
 
 // ============================================================
