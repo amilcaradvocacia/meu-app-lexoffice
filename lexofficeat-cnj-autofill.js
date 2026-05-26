@@ -679,7 +679,7 @@
       s.textContent='.af{border-color:var(--teal)!important;background:rgba(62,207,207,.05)!important;transition:border-color .3s}';
       document.head.appendChild(s);
     }
-    new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){
+    if(typeof MutationObserver !== 'undefined') new MutationObserver(function(ms){ms.forEach(function(m){m.addedNodes.forEach(function(n){
       if(n.nodeType===1&&n.querySelector&&(n.querySelector('#cnj_input_api')||n.querySelector('#lexat-api-panel'))){
         setTimeout(hookInputs,150); setTimeout(injetarConfigProxy,300);
       }
