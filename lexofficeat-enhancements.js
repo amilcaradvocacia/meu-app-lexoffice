@@ -541,7 +541,8 @@
       pubs.forEach(function(pub){
         var isJB=pub.fonte==='jusbrasil';
         var data=(pub.data||pub.timestamp||'').slice(0,10).split('-').reverse().join('/');
-        html+='<div class="ditem" style="flex-direction:column;gap:3px;margin-bottom:5px;cursor:pointer;animation:fadeIn .3s" onclick="lexVerPub(''+pub.id+'')">'
+        var pubDiv = '<div class="ditem" style="flex-direction:column;gap:3px;margin-bottom:5px;cursor:pointer" data-pubid="' + pub.id + '">';
+        html += pubDiv
           +'<div style="display:flex;align-items:center;gap:7px;width:100%">'
           +'<span class="badge '+(isJB?'bo':'bteal')+'" style="font-size:10px">'+(isJB?'JusBrasil':'Impacta')+'</span>'
           +(pub.cnj?'<span style="font-size:10px;color:var(--teal)">'+pub.cnj+'</span>':'')
