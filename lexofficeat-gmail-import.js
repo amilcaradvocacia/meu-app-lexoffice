@@ -768,12 +768,11 @@
     // Injeta botões na UI
     setTimeout(injetarPainelImport, 1200);
 
-    // Re-injeta ao trocar de página
-    var goOrig = window.go;
-    window.go = function (page, el) {
-      try { if (goOrig) goOrig(page, el);
+    // Re-injeta ao trocar de página — usa evento
+    document.addEventListener('lex:navigate', function(evt) {
+      var page = evt && evt.detail && evt.detail.page;
       if (page === 'emails') setTimeout(injetarPainelImport, 400);
-    };
+    });
 
     // Inicia monitor automaticamente se Gmail já estiver conectado
     setTimeout(function() {
