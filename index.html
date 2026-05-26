@@ -418,6 +418,8 @@ function go(page,el){
   var pg=document.getElementById('pg-'+page);
   if(pg)pg.classList.add('active');
   if(el)el.classList.add('active');
+  // Dispara evento para módulos sem sobrescrever go()
+  try{ document.dispatchEvent(new CustomEvent('lex:navigate',{detail:{page:page}})); }catch(e){}
   if(page==='processos')carregarXLS2();
   if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var c2=document.getElementById('cliCount');if(c2)c2.textContent=CLIENTS_DATA.length+' clientes';}}
   if(page==='emails')carregarInbox();
