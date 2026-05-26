@@ -117,32 +117,29 @@
   // Mapeia classe do DataJud para tipo de ação legível
   function _mapearTipoAcao(classe) {
     if (!classe) return '';
-    var c = classe.toUpperCase();
+    var c = classe.toUpperCase().trim();
     var mapa = [
-      [/RECLAMAT|TRABALHIST/,           'RECLAMATÓRIA TRABALHISTA'],
-      [/EXECU.*TRABALHIST|EXECU.*CLT/,  'EXECUÇÃO TRABALHISTA'],
-      [/EXECU.*FISCAL|DIVIDA.*ATIVA/,   'EXECUÇÃO FISCAL'],
-      [/EXECU.*CIVIL|CUMPRI.*SENTEN/,   'CUMPRIMENTO DE SENTENÇA'],
-      [/INDENIZ|DANO.*MORAL|DANO.*MAT/, 'AÇÃO DE INDENIZAÇÃO'],
-      [/COBRAN/,                         'AÇÃO DE COBRANÇA'],
-      [/DESPEJO|LOCA/,                   'AÇÃO DE DESPEJO'],
-      [/ALIMENT/,                        'AÇÃO DE ALIMENTOS'],
-      [/DIVORCIO|DIVÓRCIO/,              'AÇÃO DE DIVÓRCIO'],
-      [/INVENTARIO|INVENTÁRIO/,          'INVENTÁRIO'],
-      [/HABEAS.*CORPUS/,                 'HABEAS CORPUS'],
-      [/MANDADO.*SEGURANÇA/,             'MANDADO DE SEGURANÇA'],
-      [/RECUPERA.*JUDICIAL/,             'RECUPERAÇÃO JUDICIAL'],
-      [/FALENCIA|FALÊNCIA/,              'FALÊNCIA'],
-      [/REVISIONAL|REVISAO/,             'AÇÃO REVISIONAL'],
-      [/USUCAP/,                         'USUCAPIÃO'],
-      [/MONITOR/,                        'AÇÃO MONITÓRIA'],
-      [/POSSESSORIA|REINTEGR/,           'AÇÃO POSSESSÓRIA'],
-      [/PROCEDIMENTO.*COMUM|ORDINARIO/,  'PROCEDIMENTO COMUM CÍVEL'],
+      [/RECLAMAT|TRABALHIST|\bRCLT\b/,           'RECLAMATORIA TRABALHISTA'],
+      [/EXECU.*TRAB|EXECU.*CLT|FASE.*EXECU/,      'EXECUCAO TRABALHISTA'],
+      [/AGRAVO.*INSTRUMENTO/,                      'AGRAVO DE INSTRUMENTO'],
+      [/RECURSO.*ORDINARIO|\bRO\b/,               'RECURSO ORDINARIO'],
+      [/RECURSO.*REVISTA|\bRR\b/,                 'RECURSO DE REVISTA'],
+      [/EXECUCAO.*FISCAL|EXECU.*FISCAL/,           'EXECUCAO FISCAL'],
+      [/CUMPRI.*SENTEN|CUMPRIMENTO/,               'CUMPRIMENTO DE SENTENCA'],
+      [/INDENIZ|DANO.*MORAL|DANO.*MATER/,         'ACAO DE INDENIZACAO'],
+      [/COBRAN/,                                   'ACAO DE COBRANCA'],
+      [/DESPEJO/,                                  'ACAO DE DESPEJO'],
+      [/ALIMENT/,                                  'ACAO DE ALIMENTOS'],
+      [/DIVORCIO/,                                 'ACAO DE DIVORCIO'],
+      [/HABEAS.*CORPUS/,                           'HABEAS CORPUS'],
+      [/MANDADO.*SEGUR/,                           'MANDADO DE SEGURANCA'],
+      [/RECUPERA.*JUDICI/,                         'RECUPERACAO JUDICIAL'],
+      [/PROCEDIMENTO.*COMUM/,                      'PROCEDIMENTO COMUM CIVEL'],
+      [/INVENTARIO/,                               'INVENTARIO'],
+      [/EMBARGOS.*EXECU/,                          'EMBARGOS A EXECUCAO'],
     ];
-    for (var i = 0; i < mapa.length; i++) {
-      if (mapa[i][0].test(c)) return mapa[i][1];
-    }
-    return classe; // retorna o original se não mapear
+    for (var i=0; i<mapa.length; i++) if (mapa[i][0].test(c)) return mapa[i][1];
+    return classe;
   }
 
   async function consultarDataJud(cnj, partes) {
@@ -354,10 +351,19 @@
       advCliente   = eAtivo ? (d.adv_cliente || '') : (d.adv_adverso || '');
       advAdversario= eAtivo ? (d.adv_adverso || '') : (d.adv_cliente || '');
     } else {
-      nossoCliente  = d.polo_ativo   || '';
-      parteAdversa  = d.polo_passivo || '';
-      advCliente    = d.adv_cliente  || '';
-      advAdversario = d.adv_adverso  || '';
+      // Amilcar nao listado — inferencia por tipo de acao
+      var tipoAcao2 = (d.tipo_acao || '').toUpperCase();
+      var passivo2  = d.polo_passivo || '';
+      var isTrab2   = /RECLAMAT|TRABALHIST|EXECU.*TRAB/.test(tipoAcao2);
+      var passivoPJ2 = /LTDA|S\.A|EIRELI|TRANSPORTES|SERVICOS|LOGISTICA|IND\.|COM\./.test(passivo2);
+      if (isTrab2 && passivoPJ2 && passivo2) {
+        nossoCliente = passivo2;
+        parteAdversa = d.polo_ativo || '';
+        poloNosso    = 'RÉU';
+      } else {
+        nossoCliente = d.polo_ativo  || '';
+        parteAdversa = d.polo_passivo || '';
+      }
     }
 
     // Se não achou Amilcar nos advogados, tenta pelos nomes das partes no LexDB
