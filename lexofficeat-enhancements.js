@@ -201,21 +201,38 @@
     selByVal('f_status', d.f_status||'ativo');
     selResp();
 
-    // ABA PARTES — preenche diretamente (independente de qual aba está ativa)
-    sv('f_parte1',   d.f_parte1||d.nosso_cliente||'');
+    // ABA PARTES — suporta campos do LexDB e do DataJud
+    // LexDB usa: polo_cliente, polo_processual, ex_adverso, adv_adverso
+    // DataJud usa: f_parte1, f_polo, f_exadv, f_adv_adv
+    var nomeCliente = d.f_parte1 || d.nosso_cliente || d.polo_cliente || '';
+    var poloCli     = d.f_polo || d.polo || d.polo_processual || 'RÉU';
+    var nomeAdverso = d.f_exadv || d.adverso || d.ex_adverso || '';
+    var advAdverso  = d.f_adv_adv || d.adv_adverso || '';
+    var vara        = d.f_vara || d.vara || '';
+    var comarca     = d.f_comarca || d.comarca || '';
+    var tipoAcao    = d.f_acao || d.tipo_acao || '';
+    var tribunal    = d.tribunal || '';
+
+    sv('f_parte1',   nomeCliente);
     sv('f_cpf_cli',  d.f_cpf_cli||'');
     sv('f_qual_cli', d.f_qual_cli||'');
-    selByVal('f_polo', d.f_polo||d.polo||'AUTOR');
+    selByVal('f_polo', poloCli);
 
-    sv('f_exadv',    d.f_exadv||d.adverso||'');
+    sv('f_exadv',    nomeAdverso);
     sv('f_cpf_adv',  d.f_cpf_adv||'');
-    sv('f_adv_adv',  d.f_adv_adv||'');
+    sv('f_adv_adv',  advAdverso);
 
-    // Tipo adverso — detecta PJ automaticamente
+    // Preenche vara/comarca/tipo se vieram do LexDB mas não do DataJud
+    if (vara && !document.getElementById('f_vara').value) sv('f_vara', vara);
+    else if (vara) sv('f_vara', vara);
+    if (comarca && !document.getElementById('f_comarca').value) sv('f_comarca', comarca);
+    else if (comarca) sv('f_comarca', comarca);
+    if (tipoAcao) sv('f_acao', tipoAcao);
+
+    // Tipo adverso
     var tipoAdv = d.f_tipo_adv || 'PF';
-    if (!d.f_tipo_adv && (d.f_exadv||d.adverso||'')) {
-      var adv = (d.f_exadv||d.adverso||'').toUpperCase();
-      if (/LTDA|S\.A|EIRELI|ME|EPP|TRANSPORTES|SEGUROS|BANCO|EMPRESA|SERVICOS/.test(adv)) {
+    if (!d.f_tipo_adv && nomeAdverso) {
+      if (/LTDA|S\.A|EIRELI|ME|EPP|TRANSPORTES|SEGUROS|BANCO|EMPRESA|SERVICOS/.test(nomeAdverso.toUpperCase())) {
         tipoAdv = 'PJ';
       }
     }
