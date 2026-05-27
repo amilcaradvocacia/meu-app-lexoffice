@@ -32,11 +32,19 @@
     if (val === undefined || val === null || val === '') return;
     var el = document.getElementById(id);
     if (!el) return;
-    el.value = String(val).trim();
+    var v = String(val).trim();
+    if (!v) return;
+    // Força visibilidade temporária para garantir preenchimento
+    var oldDisplay = el.style.display;
+    var oldVis     = el.style.visibility;
+    el.style.display    = 'block';
+    el.style.visibility = 'visible';
+    el.value = v;
     el.classList.add('af');
-    // Dispara eventos para garantir que frameworks reajam
-    el.dispatchEvent(new Event('input',  {bubbles:true}));
-    el.dispatchEvent(new Event('change', {bubbles:true}));
+    el.style.display    = oldDisplay;
+    el.style.visibility = oldVis;
+    try { el.dispatchEvent(new Event('input',  {bubbles:true})); } catch(e){}
+    try { el.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
   }
 
   // ── Seleciona option por VALUE exato ─────────────────────
@@ -184,21 +192,41 @@
   // ── Preenche modal com dados ──────────────────────────────
   function preencher(d) {
     if (!d) return;
-    // ABA DADOS — IDs confirmados
-    sv('f_auto',    d.f_auto||d.cnj);
-    sv('cnj_input_api', d.f_auto||d.cnj);
-    sv('f_acao',    d.f_acao);
-    sv('f_vara',    d.f_vara);
-    sv('f_comarca', d.f_comarca);
-    selByVal('f_status', d.f_status||'ativo');
-    selResp(); // sempre Dr. Amilcar
 
-    // ABA PARTES — IDs confirmados
-    sv('f_parte1',  d.f_parte1);
-    selByVal('f_polo', d.f_polo||'AUTOR');
-    sv('f_exadv',   d.f_exadv);
-    selByVal('f_tipo_adv', d.f_tipo_adv||'PF');
-    sv('f_adv_adv', d.f_adv_adv);
+    // Garante que o modal está aberto antes de preencher
+    var modal = document.getElementById('mProcesso');
+    if (modal && !modal.classList.contains('open')) {
+      modal.classList.add('open');
+    }
+
+    // ABA DADOS
+    sv('f_auto',        d.f_auto||d.cnj||'');
+    sv('cnj_input_api', d.f_auto||d.cnj||'');
+    sv('f_acao',        d.f_acao||'');
+    sv('f_vara',        d.f_vara||'');
+    sv('f_comarca',     d.f_comarca||'');
+    selByVal('f_status', d.f_status||'ativo');
+    selResp();
+
+    // ABA PARTES — preenche diretamente (independente de qual aba está ativa)
+    sv('f_parte1',   d.f_parte1||d.nosso_cliente||'');
+    sv('f_cpf_cli',  d.f_cpf_cli||'');
+    sv('f_qual_cli', d.f_qual_cli||'');
+    selByVal('f_polo', d.f_polo||d.polo||'AUTOR');
+
+    sv('f_exadv',    d.f_exadv||d.adverso||'');
+    sv('f_cpf_adv',  d.f_cpf_adv||'');
+    sv('f_adv_adv',  d.f_adv_adv||'');
+
+    // Tipo adverso — detecta PJ automaticamente
+    var tipoAdv = d.f_tipo_adv || 'PF';
+    if (!d.f_tipo_adv && (d.f_exadv||d.adverso||'')) {
+      var adv = (d.f_exadv||d.adverso||'').toUpperCase();
+      if (/LTDA|S\.A|EIRELI|ME|EPP|TRANSPORTES|SEGUROS|BANCO|EMPRESA|SERVICOS/.test(adv)) {
+        tipoAdv = 'PJ';
+      }
+    }
+    selByVal('f_tipo_adv', tipoAdv);
 
     // Anotações
     if (d.f_anotacoes) {
