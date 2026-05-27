@@ -34,15 +34,8 @@
     if (!el) return;
     var v = String(val).trim();
     if (!v) return;
-    // Força visibilidade temporária para garantir preenchimento
-    var oldDisplay = el.style.display;
-    var oldVis     = el.style.visibility;
-    el.style.display    = 'block';
-    el.style.visibility = 'visible';
     el.value = v;
     el.classList.add('af');
-    el.style.display    = oldDisplay;
-    el.style.visibility = oldVis;
     try { el.dispatchEvent(new Event('input',  {bubbles:true})); } catch(e){}
     try { el.dispatchEvent(new Event('change', {bubbles:true})); } catch(e){}
   }
