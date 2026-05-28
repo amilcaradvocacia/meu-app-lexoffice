@@ -135,6 +135,8 @@
 
     box.innerHTML = tarefas.map(function(t) {
       var cor = t.prioridade === 'alta' ? 'var(--red)' : t.prioridade === 'media' ? 'var(--orange)' : 'var(--text3)';
+      // Ignora tarefas demo sem CNJ real
+      if (!t.cnj && t.descricao && t.descricao.toLowerCase().includes('jurisprud')) return '';
       var resp = t.cliente ? t.cliente.slice(0, 25) : '';
       return '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">'
         + '<div style="width:8px;height:8px;border-radius:50%;background:' + cor + ';margin-top:4px;flex-shrink:0"></div>'
