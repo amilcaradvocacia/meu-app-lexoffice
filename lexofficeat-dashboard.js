@@ -242,7 +242,7 @@
     hookGo();
     renderDashboard();
     // Re-renderiza periodicamente
-    setInterval(renderDashboard, 15000);
+    // setInterval removido para performance;
   }
 
   aguardar(init);
