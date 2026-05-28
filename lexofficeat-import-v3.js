@@ -576,7 +576,7 @@
       'from:publicacoes@iprazos.adv.br',
     ].join(' OR ');
 
-    fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q='+encodeURIComponent(query)+'&maxResults=50',
+    fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q='+encodeURIComponent(query)+'&maxResults=20',
       {headers:{Authorization:'Bearer '+token}})
       .then(function(r){return r.json();})
       .then(function(data){
@@ -630,7 +630,7 @@
                 });
                 if(!proms.length)next();
               }).catch(function(e){log('❌ '+e.message,'err');next();});
-          }, i*400);
+          }, i*600);
         }
         next();
       }).catch(function(e){log('❌ Gmail: '+e.message,'err');});
