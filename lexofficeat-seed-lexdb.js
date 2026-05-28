@@ -242,6 +242,14 @@
     }, 500);
   }
 
-  aguardar(injetar);
+  // Só roda se não rodou hoje
+  function rodaSeed() {
+    var hoje = new Date().toDateString();
+    var ultimo = localStorage.getItem('lex_seed_last');
+    if (ultimo === hoje) { console.log('[LexSeed] Já rodou hoje'); return; }
+    localStorage.setItem('lex_seed_last', hoje);
+    injetar();
+  }
+  aguardar(rodaSeed);
   window.lexSeedRerun = injetar;
 })();
