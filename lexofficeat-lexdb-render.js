@@ -349,5 +349,5 @@
   } else {
     setTimeout(init,2500);
   }
-  setInterval(function(){renderPagina('dashboard');},30000);
+  // setInterval removido para performance;
 })();
