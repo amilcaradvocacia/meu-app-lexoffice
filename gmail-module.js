@@ -48,6 +48,8 @@
       GM.token    = savedToken;
       GM.tokenExp = savedExp;
       EMAIL.token = savedToken;
+      localStorage.setItem('lex_gmail_auth', savedToken);
+      localStorage.setItem('lex_token_exp', String(savedExp));
       EMAIL.ok    = true;
       ativarGmailUI();
       iniciarMonitor();
@@ -99,6 +101,9 @@
 
     DB.save(TOKEN_KEY, token);
     DB.save(TOKEN_EXP_KEY, exp);
+    // Sincroniza com chaves usadas pelo import-v3
+    localStorage.setItem('lex_gmail_auth', token);
+    localStorage.setItem('lex_token_exp', String(exp));
 
     ativarGmailUI();
     toast('✅ Gmail conectado! Monitor iniciado.', 'green');
