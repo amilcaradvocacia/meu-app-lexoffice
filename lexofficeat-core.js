@@ -5,7 +5,33 @@
  */
 (function() {
   'use strict';
-  function db() { return typeof LexSync !== 'undefined' && LexSync.DB ? LexSync.DB : null; }
+  // db() robusto — funciona com LexSync ou direto do localStorage
+  var _KEYS = {
+    processos:   'lexat_processos',
+    clientes:    'lexat_clientes', 
+    prazos:      'lexat_prazos',
+    publicacoes: 'lexat_publicacoes',
+    audiencias:  'lexat_audiencias',
+    tarefas:     'lexat_tarefas',
+  };
+  var _dbFallback = {
+    KEYS: _KEYS,
+    getAll: function(key) {
+      try { return JSON.parse(localStorage.getItem(key)||'[]')||[]; } catch(e) { return []; }
+    },
+    add: function(key, item) {
+      try { var arr=this.getAll(key); arr.push(item); localStorage.setItem(key,JSON.stringify(arr.slice(-500))); } catch(e) {}
+    },
+    update: function(key, id, updates) {
+      try { var arr=this.getAll(key); var idx=arr.findIndex(function(x){return x.id===id;}); if(idx>=0){Object.assign(arr[idx],updates);localStorage.setItem(key,JSON.stringify(arr));} } catch(e) {}
+    },
+    newId: function(prefix) { return (prefix||'x')+'_'+Date.now()+'_'+Math.random().toString(36).slice(2,6); },
+    stats: function() { return {}; }
+  };
+  function db() {
+    if (typeof LexSync !== 'undefined' && LexSync.DB && typeof LexSync.DB.getAll === 'function') return LexSync.DB;
+    return _dbFallback;
+  }
   function getToken() { return localStorage.getItem('lex_gmail_token') || localStorage.getItem('lex_gmail_auth'); }
 
   function calcPrazo(texto, cnj) {
@@ -517,18 +543,11 @@
   window.renderPrazosDash=renderDash;
 
   function init(){cleanup();hookGo();renderDash();seedOnce();console.log('[Core] ✅ v1.0');}
-  function aguardar(cb, tentativas){
-    tentativas = tentativas || 0;
-    if (db()) { cb(); return; }
-    if (tentativas > 15) {
-      // Fallback: inicia sem LexSync.DB
-      console.warn('[Core] LexSync não iniciou — modo fallback');
-      hookGo();
-      renderDash();
-      return;
-    }
-    setTimeout(function(){ aguardar(cb, tentativas+1); }, 600);
+  // db() sempre funciona agora — inicia diretamente
+  // Aguarda apenas para garantir que o DOM está pronto
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(init, 500); });
+  } else {
+    setTimeout(init, 500);
   }
-  // Tenta init imediato E com aguardar
-  try { if (db()) { init(); } else { aguardar(init); } } catch(e) { aguardar(init); }
 })();
