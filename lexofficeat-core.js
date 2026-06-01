@@ -371,8 +371,10 @@
     var panelId = 'lexPrazosPanel';
     var panel = document.getElementById(panelId);
     if (!panel) {
-      panel = document.createElement('div'); panel.id = panelId; panel.style.marginTop = '12px';
-      var c = cont.querySelector('.content'); if (c) c.appendChild(panel); else cont.appendChild(panel);
+      panel = document.createElement('div'); panel.id = panelId;
+      // Tenta conteiner específico primeiro
+      var c = document.getElementById('prazos-content') || cont.querySelector('.content');
+      if (c) c.appendChild(panel); else cont.appendChild(panel);
     }
     panel.innerHTML = '';
 
@@ -455,8 +457,9 @@
     var panelId = 'lexProcPanel';
     var panel = document.getElementById(panelId);
     if (!panel) {
-      panel = document.createElement('div'); panel.id = panelId; panel.style.marginTop = '12px';
-      var c = cont.querySelector('.content'); if (c) c.appendChild(panel); else cont.appendChild(panel);
+      panel = document.createElement('div'); panel.id = panelId;
+      var c = document.getElementById('processos-content') || cont.querySelector('.content');
+      if (c) c.appendChild(panel); else cont.appendChild(panel);
     }
     panel.innerHTML = '';
 
