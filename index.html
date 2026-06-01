@@ -307,8 +307,12 @@ function go(page,el){
   var pg=document.getElementById('pg-'+page);
   if(pg)pg.classList.add('active');
   if(el)el.classList.add('active');
-  // Dispara evento para módulos sem sobrescrever go()
+  // Dispara evento para módulos
   try{ document.dispatchEvent(new CustomEvent('lex:navigate',{detail:{page:page}})); }catch(e){}
+  // Chama renderPag diretamente para garantir conteúdo
+  setTimeout(function(){
+    if(typeof window.lexRenderPagina==='function') window.lexRenderPagina(page);
+  }, 100);
   if(page==='processos')carregarXLS2();
   if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var c2=document.getElementById('cliCount');if(c2)c2.textContent=CLIENTS_DATA.length+' clientes';}}
   if(page==='emails')carregarInbox();
