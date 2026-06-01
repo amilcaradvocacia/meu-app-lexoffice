@@ -738,4 +738,16 @@ document.addEventListener('DOMContentLoaded', function() {
   <script src="lexofficeat-cnj-autofill.js"></script>
   <script src="lexofficeat-enhancements.js"></script>
   <script src="lexoffice-fixes.js"></script>
+<script>
+// Garante render do dashboard após todos os scripts carregarem
+window.addEventListener('load', function(){
+  setTimeout(function(){
+    if (typeof renderDash === 'function') renderDash();
+    if (typeof window.renderDashboardFull === 'function') window.renderDashboardFull();
+    // Re-emite o evento para o dashboard atual
+    try { document.dispatchEvent(new CustomEvent('lex:navigate',{detail:{page:'dashboard'}})); } catch(e){}
+    console.log('[LexAT] Dashboard render on load');
+  }, 1000);
+});
+</script>
 </body></html>
