@@ -110,8 +110,8 @@
   function renderPag(page){
     var d=db();if(!d)return;
     if(page==='dashboard'){renderDash();return;}
-    if(page==='prazos'&&typeof window.lexRenderPrazosAba==='function'){window.lexRenderPrazosAba('pendente');return;}
-    if(page==='processos'&&typeof window.lexRenderProcAba==='function'){window.lexRenderProcAba('ativo');return;}
+    if(page==='prazos'){renderAbaPrazos('pendente');return;}
+    if(page==='processos'){renderAbaProcessos('ativo');return;}
     if(page==='emails'){
       var el=document.getElementById('inboxList');if(!el)return;
       var pubs=(d.getAll(d.KEYS.publicacoes)||[]).slice(-80).reverse();
@@ -321,6 +321,184 @@
      {cnj:'0000252-46.2026.5.09.0024',tipo_acao:'AÇÃO TRABALHISTA - RITO ORDINÁRIO',vara:'01ª VARA DO TRABALHO DE PONTA GROSSA',comarca:'PONTA GROSSA',tribunal:'TRT 9ª Região',nosso_cliente:'KRM TRANSPORTES LTDA',adverso:'JEAN CARLOS MIRANDA',polo:'RÉU',adv_adverso:'FRANCIELI MESSIAS OAB 74268',eventos:[{data:'26/05/2026',descricao:'Suspenso por acordo'}],prazo_dias:0,tipo_prazo:'',fonte:'trt9_push'},
     ].forEach(function(p){upsert(p);});
   }
+
+  // ── Render aba Prazos (completo) ─────────────────────────
+  function renderAbaPrazos(filtro) {
+    filtro = filtro || 'pendente';
+    var d = db(); if (!d) return;
+    var cont = document.getElementById('pg-prazos'); if (!cont) return;
+    var hoje = new Date();
+    var todos = (d.getAll(d.KEYS.prazos)||[]).map(function(p) {
+      var v = p.vencimentoISO || (p.vencimento||'').split('/').reverse().join('-');
+      return Object.assign({}, p, {dias: Math.ceil((new Date(v) - hoje) / 86400000)});
+    });
+    var seen = {};
+    todos = todos.filter(function(p) {
+      var k = (p.cnj||'')+'|'+(p.tipo||'')+'|'+(p.vencimentoISO||'');
+      if (seen[k]) return false; seen[k] = true; return true;
+    });
+    var lista = filtro === 'todos' ? todos : todos.filter(function(p) { return p.status === filtro; });
+    lista.sort(function(a, b) { return a.dias - b.dias; });
+    var cnt = {pendente:0, concluido:0, embargos:0, todos:todos.length};
+    todos.forEach(function(p) { if (cnt[p.status] !== undefined) cnt[p.status]++; });
+
+    var panelId = 'lexPrazosPanel';
+    var panel = document.getElementById(panelId);
+    if (!panel) {
+      panel = document.createElement('div'); panel.id = panelId; panel.style.marginTop = '12px';
+      var c = cont.querySelector('.content'); if (c) c.appendChild(panel); else cont.appendChild(panel);
+    }
+    panel.innerHTML = '';
+
+    // Botões de filtro
+    var fRow = document.createElement('div'); fRow.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap';
+    [{v:'pendente',l:'Pendentes',cnt:cnt.pendente},{v:'concluido',l:'Concluídos',cnt:cnt.concluido},{v:'embargos',l:'Embargos',cnt:cnt.embargos},{v:'todos',l:'Todos',cnt:cnt.todos}].forEach(function(ft) {
+      var b = document.createElement('button');
+      b.className = 'btn btn-sm ' + (filtro === ft.v ? 'btn-teal' : 'btn-ghost');
+      b.textContent = ft.l + ' (' + ft.cnt + ')';
+      (function(fv) { b.onclick = function() { renderAbaPrazos(fv); }; })(ft.v);
+      fRow.appendChild(b);
+    });
+    panel.appendChild(fRow);
+
+    // Tabela
+    var wrap = document.createElement('div'); wrap.className = 'card';
+    wrap.innerHTML = '<div class="cb" style="overflow-x:auto"><table class="dtable" style="min-width:700px">'
+      + '<thead><tr><th>CNJ</th><th>Cliente</th><th>Tipo</th><th>Vara</th><th>Vencimento</th><th>Dias</th><th>Status</th><th>Ações</th></tr></thead>'
+      + '<tbody id="lexPrazosTbody"></tbody></table></div>';
+    panel.appendChild(wrap);
+
+    var tbody = document.getElementById('lexPrazosTbody'); if (!tbody) return;
+    if (!lista.length) { tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Nenhum prazo ' + filtro + '</td></tr>'; return; }
+
+    lista.forEach(function(p) {
+      var cor = p.dias <= 0 ? 'var(--red)' : p.dias <= 3 ? 'var(--red)' : p.dias <= 7 ? 'var(--orange)' : 'var(--green)';
+      var badge = p.dias <= 0 ? 'VENCIDO' : p.dias <= 3 ? 'URGENTE' : p.dias <= 7 ? 'ATENÇÃO' : 'OK';
+      var cls = p.dias <= 3 ? 'br' : p.dias <= 7 ? 'bo' : 'bteal';
+      if (p.status === 'concluido') { badge = '✅ OK'; cls = 'bteal'; }
+      else if (p.status === 'embargos') { badge = '📋 Emb.'; cls = 'bg'; }
+      var tr = document.createElement('tr'); tr.style.cursor = 'pointer';
+      tr.innerHTML = '<td style="font-size:11px;color:var(--teal)">' + (p.cnj||'').slice(0,22) + '</td>'
+        + '<td style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.cliente||'').slice(0,26) + '</td>'
+        + '<td style="font-size:12px">' + (p.tipo||'').split('—')[0].trim() + '</td>'
+        + '<td style="font-size:11px;color:var(--text3)">' + (p.vara||'').slice(0,18) + '</td>'
+        + '<td style="color:' + cor + '">' + (p.vencimento||'') + '</td>'
+        + '<td style="color:' + cor + ';font-weight:700;text-align:center">' + (p.dias <= 0 ? p.dias : '+' + p.dias) + 'd</td>'
+        + '<td><span class="badge ' + cls + '">' + badge + '</span></td>'
+        + '<td></td>';
+      (function(prazo) {
+        tr.onclick = function(e) { if (e.target.tagName === 'BUTTON') return; if (typeof window.lexVerPrazoDetalhe === 'function') lexVerPrazoDetalhe(prazo); };
+        var acoes = tr.cells[7];
+        var btns = document.createElement('div'); btns.style.cssText = 'display:flex;gap:3px';
+        if (prazo.status === 'pendente') {
+          var b1 = document.createElement('button'); b1.className = 'btn btn-ghost btn-xs'; b1.style.color = '#4ade98'; b1.textContent = '✅ OK';
+          b1.onclick = function(e) { e.stopPropagation(); var d2=db();if(d2&&prazo.id)d2.update(d2.KEYS.prazos,prazo.id,{status:'concluido',updatedAt:new Date().toISOString()}); renderAbaPrazos('pendente'); renderDash(); if(typeof toast==='function')toast('✅ Prazo concluído','teal'); };
+          btns.appendChild(b1);
+          var b2 = document.createElement('button'); b2.className = 'btn btn-ghost btn-xs'; b2.style.color = '#6898ff'; b2.textContent = '📋 Emb.';
+          b2.onclick = function(e) { e.stopPropagation(); var d2=db();if(d2&&prazo.id)d2.update(d2.KEYS.prazos,prazo.id,{status:'embargos',updatedAt:new Date().toISOString()});
+            var venc=new Date();venc.setDate(venc.getDate()+5);var vBR=venc.toLocaleDateString('pt-BR'),vISO=venc.toISOString().slice(0,10);
+            if(d2)d2.add(d2.KEYS.prazos,{id:d2.newId('prazo'),cnj:prazo.cnj,cliente:prazo.cliente,tipo:'Embargos de Declaração — 5 dias',fundamento:'Embargos ao prazo: '+(prazo.tipo||''),urgencia:'alta',dias:5,vencimento:vBR,vencimentoISO:vISO,vara:prazo.vara||'',status:'pendente',createdAt:new Date().toISOString()});
+            renderAbaPrazos('pendente');if(typeof toast==='function')toast('📋 Embargos: 5 dias ('+vBR+')','teal'); };
+          btns.appendChild(b2);
+          var b3 = document.createElement('button'); b3.className = 'btn btn-ghost btn-xs'; b3.textContent = '📅';
+          b3.onclick = function(e) { e.stopPropagation(); var tok=getToken();if(!tok)return; fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events',{method:'POST',headers:{Authorization:'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify({summary:(prazo.tipo||'Prazo')+' — '+(prazo.cliente||prazo.cnj||'').slice(0,35),description:'CNJ: '+(prazo.cnj||''),start:{date:prazo.vencimentoISO},end:{date:prazo.vencimentoISO},colorId:'11',reminders:{useDefault:false,overrides:[{method:'popup',minutes:1440},{method:'popup',minutes:4320}]}})}).then(function(){if(typeof toast==='function')toast('📅 Adicionado ao Calendar','teal');}).catch(function(){}); };
+          btns.appendChild(b3);
+        } else {
+          var br = document.createElement('button'); br.className = 'btn btn-ghost btn-xs'; br.style.color = '#fbb040'; br.textContent = '↩ Reabrir';
+          br.onclick = function(e) { e.stopPropagation(); var d2=db();if(d2&&prazo.id)d2.update(d2.KEYS.prazos,prazo.id,{status:'pendente',updatedAt:new Date().toISOString()}); renderAbaPrazos('pendente'); };
+          btns.appendChild(br);
+        }
+        acoes.appendChild(btns);
+      })(p);
+      tbody.appendChild(tr);
+    });
+  }
+
+  window.lexRenderPrazosAba = renderAbaPrazos;
+
+  // ── Render aba Processos (completo) ──────────────────────
+  function renderAbaProcessos(filtro) {
+    filtro = filtro || 'ativo';
+    var d = db(); if (!d) return;
+    var cont = document.getElementById('pg-processos'); if (!cont) return;
+    var todos = d.getAll(d.KEYS.processos) || [];
+    var lista = filtro === 'todos' ? todos : todos.filter(function(p) { return (p.status||'ativo') === filtro; });
+    var cnt = {ativo:0, suspenso:0, arquivado:0, 'ag-prazo':0, 'ag-audiencia':0, todos:todos.length};
+    todos.forEach(function(p) { var s = p.status||'ativo'; if (cnt[s] !== undefined) cnt[s]++; });
+
+    var panelId = 'lexProcPanel';
+    var panel = document.getElementById(panelId);
+    if (!panel) {
+      panel = document.createElement('div'); panel.id = panelId; panel.style.marginTop = '12px';
+      var c = cont.querySelector('.content'); if (c) c.appendChild(panel); else cont.appendChild(panel);
+    }
+    panel.innerHTML = '';
+
+    // Filtros
+    var fRow2 = document.createElement('div'); fRow2.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap';
+    [{v:'ativo',l:'Em Andamento',cnt:cnt.ativo},{v:'ag-prazo',l:'Ag. Prazo',cnt:cnt['ag-prazo']},{v:'ag-audiencia',l:'Ag. Audiência',cnt:cnt['ag-audiencia']},{v:'suspenso',l:'Suspensos',cnt:cnt.suspenso},{v:'arquivado',l:'Arquivados',cnt:cnt.arquivado},{v:'todos',l:'Todos',cnt:cnt.todos}].forEach(function(ft) {
+      var b = document.createElement('button');
+      b.className = 'btn btn-sm ' + (filtro === ft.v ? 'btn-teal' : 'btn-ghost');
+      b.textContent = ft.l + ' (' + ft.cnt + ')';
+      (function(fv) { b.onclick = function() { renderAbaProcessos(fv); }; })(ft.v);
+      fRow2.appendChild(b);
+    });
+    panel.appendChild(fRow2);
+
+    var wrap2 = document.createElement('div'); wrap2.className = 'card';
+    wrap2.innerHTML = '<div class="cb" style="overflow-x:auto"><table class="dtable" style="min-width:700px">'
+      + '<thead><tr><th>Ficha</th><th>CNJ</th><th>Cliente</th><th>Polo</th><th>Vara</th><th>Status</th><th>Alterar</th></tr></thead>'
+      + '<tbody id="lexProcTbody"></tbody></table></div>';
+    panel.appendChild(wrap2);
+
+    var tbody2 = document.getElementById('lexProcTbody'); if (!tbody2) return;
+    if (!lista.length) { tbody2.innerHTML = '<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Nenhum processo ' + filtro + '</td></tr>'; return; }
+
+    lista.slice(0, 200).forEach(function(p) {
+      var sLabels = {ativo:'Em Andamento', suspenso:'Suspenso', arquivado:'Arquivado', 'ag-prazo':'Ag. Prazo', 'ag-audiencia':'Ag. Audiência'};
+      var sBadge  = {ativo:'bteal', suspenso:'bo', arquivado:'bg', 'ag-prazo':'br', 'ag-audiencia':'blue'};
+      var tr = document.createElement('tr'); tr.style.cursor = 'pointer';
+      tr.innerHTML = '<td style="color:var(--gold);font-weight:600">' + (p.ficha||'') + '</td>'
+        + '<td style="font-size:11px;color:var(--teal)">' + (p.cnj||'') + '</td>'
+        + '<td style="max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + (p.polo_cliente||'').slice(0,25) + '</td>'
+        + '<td><span class="badge ' + (p.polo_processual==='RÉU'?'br':'bteal') + '" style="font-size:10px">' + (p.polo_processual||'') + '</span></td>'
+        + '<td style="font-size:11px;color:var(--text3)">' + (p.vara||p.tribunal||'').slice(0,20) + '</td>'
+        + '<td><span class="badge ' + (sBadge[p.status||'ativo']||'bg') + '" style="font-size:10px">' + (sLabels[p.status||'ativo']||p.status||'') + '</span></td>'
+        + '<td></td>';
+      (function(proc) {
+        tr.onclick = function(e) { if (e.target.tagName === 'BUTTON' || e.target.tagName === 'SELECT') return; window.lexAbrirProcessoDB(proc); };
+        var sel = document.createElement('select'); sel.className = 'btn btn-ghost btn-xs'; sel.style.cssText = 'font-size:11px;padding:2px 4px;cursor:pointer';
+        [{v:'ativo',l:'Em Andamento'},{v:'ag-prazo',l:'Ag. Prazo'},{v:'ag-audiencia',l:'Ag. Audiência'},{v:'suspenso',l:'Suspenso'},{v:'arquivado',l:'Arquivado'}].forEach(function(opt) {
+          var o = document.createElement('option'); o.value = opt.v; o.textContent = opt.l;
+          if ((proc.status||'ativo') === opt.v) o.selected = true; sel.appendChild(o);
+        });
+        sel.onchange = function(e) { e.stopPropagation(); var d2=db();if(!d2)return; d2.update(d2.KEYS.processos,proc.id,{status:this.value,updatedAt:new Date().toISOString()}); if(typeof toast==='function')toast('Status: '+this.options[this.selectedIndex].text,'teal'); renderAbaProcessos(filtro); };
+        tr.cells[6].appendChild(sel);
+      })(p);
+      tbody2.appendChild(tr);
+    });
+  }
+
+  window.lexRenderProcAba = renderAbaProcessos;
+
+  window.lexAbrirProcessoDB = function(p) {
+    if (!p || typeof openModal !== 'function') return;
+    openModal('mProcesso');
+    setTimeout(function() {
+      if (typeof switchTab === 'function') switchTab('dados');
+      var s = function(id, v) { var el=document.getElementById(id); if(el&&v) el.value=String(v); };
+      s('f_proc',p.ficha); s('f_auto',p.cnj); s('f_acao',p.tipo_acao);
+      s('f_vara',p.vara); s('f_comarca',p.comarca);
+      s('f_parte1',p.polo_cliente); s('f_exadv',p.ex_adverso); s('f_adv_adv',p.adv_adverso);
+      var re=document.getElementById('f_resp');
+      if(re)for(var i=0;i<re.options.length;i++){if(re.options[i].text.toLowerCase().includes('amilcar')){re.selectedIndex=i;break;}}
+      var sel=function(id,v){var el=document.getElementById(id);if(!el||!v)return;for(var i=0;i<el.options.length;i++){if(el.options[i].value===v||el.options[i].value.toUpperCase()===v.toUpperCase()){el.selectedIndex=i;break;}}};
+      sel('f_polo',p.polo_processual||'RÉU'); sel('f_status',p.status||'ativo');
+      var b=document.getElementById('autoFillBanner');
+      if(b){b.style.display='flex';b.innerHTML='LexDB: '+(p.ficha||p.cnj)+' — '+(p.polo_cliente||'');}
+    }, 300);
+  };
+
 
   function hookGo(){
     var orig=window.go;
