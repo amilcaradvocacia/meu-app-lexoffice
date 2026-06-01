@@ -501,11 +501,15 @@
 
 
   function hookGo(){
-    var orig=window.go;
-    if(orig&&!orig._core){
-      window.go=function(page,el){try{orig(page,el);}catch(e){}setTimeout(function(){renderPag(page);},200);};
-      window.go._core=true;
-    }
+    // Usa evento lex:navigate em vez de sobrescrever go()
+    // Evita conflito com outros hooks (improvements.js, etc.)
+    document.removeEventListener('lex:navigate', _onNavigate);
+    document.addEventListener('lex:navigate', _onNavigate);
+    console.log('[Core] hookGo via lex:navigate');
+  }
+  function _onNavigate(evt){
+    var page = evt && evt.detail && evt.detail.page;
+    if (page) setTimeout(function(){ renderPag(page); }, 150);
   }
 
   window.lexRenderPagina=renderPag;
@@ -513,6 +517,18 @@
   window.renderPrazosDash=renderDash;
 
   function init(){cleanup();hookGo();renderDash();seedOnce();console.log('[Core] ✅ v1.0');}
-  function aguardar(cb){if(db()){cb();return;}setTimeout(function(){aguardar(cb);},800);}
-  aguardar(init);
+  function aguardar(cb, tentativas){
+    tentativas = tentativas || 0;
+    if (db()) { cb(); return; }
+    if (tentativas > 15) {
+      // Fallback: inicia sem LexSync.DB
+      console.warn('[Core] LexSync não iniciou — modo fallback');
+      hookGo();
+      renderDash();
+      return;
+    }
+    setTimeout(function(){ aguardar(cb, tentativas+1); }, 600);
+  }
+  // Tenta init imediato E com aguardar
+  try { if (db()) { init(); } else { aguardar(init); } } catch(e) { aguardar(init); }
 })();
