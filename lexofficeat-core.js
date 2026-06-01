@@ -69,7 +69,7 @@
     // Prazos
     var box=document.getElementById('dashPrazosConteudo');
     if(box){
-      var prazos=(d.getAll(d.KEYS.prazos)||[]).filter(function(p){return p.status==='pendente';})
+      var prazos=(d.getAll(d.KEYS.prazos)||[]).filter(function(p){return p.status==='pendente'||p.status==='embargos';})
         .map(function(p){var v=p.vencimentoISO||(p.vencimento||'').split('/').reverse().join('-');
           return Object.assign({},p,{dias:Math.ceil((new Date(v)-hoje)/86400000)});})
         .sort(function(a,b){return a.dias-b.dias;}).slice(0,5);
@@ -124,7 +124,7 @@
     var sb=document.querySelector('.nitem[onclick*="prazos"] .nbadge');
     if(sb&&prazosUrg.length)sb.textContent=prazosUrg.length;
     var pubs=(d.getAll(d.KEYS.publicacoes)||[]);
-    var sbP=document.querySelector('.nitem[onclick*="emails"] .nbadge, .nitem[onclick*="publicacoes"] .nbadge');
+    var sbP=document.getElementById('nbPublicacoes')||document.querySelector('.nitem[onclick*="emails"] .nbadge');
     if(sbP)sbP.textContent=pubs.length>200?'200+':pubs.length;
     var bar=document.querySelector('[data-lexdb-info]');
     if(bar){
