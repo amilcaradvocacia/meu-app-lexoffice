@@ -535,19 +535,44 @@
   }
   function _onNavigate(evt){
     var page = evt && evt.detail && evt.detail.page;
-    if (page) setTimeout(function(){ renderPag(page); }, 150);
+    if (page) {
+      setTimeout(function(){ renderPag(page); }, 200);
+      if (page === 'dashboard') setTimeout(renderDash, 400);
+    }
   }
 
   window.lexRenderPagina=renderPag;
   window.renderDashboardFull=renderDash;
   window.renderPrazosDash=renderDash;
 
-  function init(){cleanup();hookGo();renderDash();seedOnce();console.log('[Core] ✅ v1.0');}
+  function init(){
+    cleanup();
+    hookGo();
+    seedOnce();
+    // Render inicial com delays para garantir DOM pronto
+    setTimeout(renderDash, 800);
+    setTimeout(renderDash, 2000); // segunda tentativa
+    console.log('[Core] ✅ v1.0');
+  }
   // db() sempre funciona agora — inicia diretamente
   // Aguarda apenas para garantir que o DOM está pronto
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function(){ setTimeout(init, 500); });
-  } else {
-    setTimeout(init, 500);
+  // Inicia imediatamente E após DOM estar pronto
+  function _startCore() {
+    if (_coreStarted) return; _coreStarted = true;
+    init();
   }
+  var _coreStarted = false;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function(){ setTimeout(_startCore, 200); });
+  } else {
+    setTimeout(_startCore, 100);
+  }
+  // Também registra listener para quando go() for chamado antes do core carregar
+  document.addEventListener('lex:navigate', function(evt){
+    if (!_coreStarted) {
+      _startCore();
+      var page = evt && evt.detail && evt.detail.page;
+      if (page) setTimeout(function(){ renderPag(page); }, 500);
+    }
+  });
 })();
