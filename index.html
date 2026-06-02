@@ -227,7 +227,7 @@ var DB = {
 // EMAIL objeto
 // ============================================================
 var EMAIL = {
-  cfg: { clientId:'904302581754-4mkkf03s97j54ijh1f53f7srsquo20h2.apps.googleusercontent.com', secret:'', calId:'primary', prefix:'[LEX] ', prazo:15, dedup:'cnj', autoAgenda:true, autoTarefa:true, resp:1, intervalo:15 },
+  cfg: { clientId:'245855517843-4fstpfsna79doa6krmvg3hu5p3o7jtdm.apps.googleusercontent.com', secret:'', calId:'primary', prefix:'[LEX] ', prazo:15, dedup:'cnj', autoAgenda:true, autoTarefa:true, resp:1, intervalo:15 },
   ok: false, token: null, prazos: [], cnjs_impacta: {}, log_entries: [],
   stats: {total:0, procs:0, prazos:0, dups:0}, _inbox: [], _extracao: null
 };
@@ -271,7 +271,7 @@ var EMAIL = {
 var S = {
   usuarios: [
     {id:1,nome:'Dr. Amilcar Cordeiro Teixeira Filho',perfil:'advogado',oab:'OAB/PR 21.856',cor:'#c9a84c',email:'amilcaradvocacia@gmail.com',tel:'(42)3028-4890',ativo:true},
-    {id:2,nome:'Dra. Ana Cláudia Damasceno',perfil:'advogado',oab:'OAB/PR 31.222',cor:'#5b8dee',email:'anaclaudia@escritorio.com',tel:'(42)3028-4890',ativo:true},
+    {id:2,nome:'Dra. Ana Souza',perfil:'advogado',oab:'OAB/PR 31.222',cor:'#5b8dee',email:'ana@escritorio.com',tel:'(42)3028-4890',ativo:true},
     {id:3,nome:'Dr. Paulo Neto',perfil:'associado',oab:'OAB/PR 44.333',cor:'#4caf82',email:'paulo@escritorio.com',tel:'(42)3033-0003',ativo:true},
     {id:4,nome:'Dra. Marta Alves',perfil:'associado',oab:'OAB/PR 55.444',cor:'#9b72e8',email:'marta@escritorio.com',tel:'(42)3033-0004',ativo:true},
     {id:5,nome:'Assistente Júlia',perfil:'assistente',oab:'',cor:'#e8854a',email:'julia@escritorio.com',tel:'(42)3033-0005',ativo:true}
@@ -307,17 +307,8 @@ function go(page,el){
   var pg=document.getElementById('pg-'+page);
   if(pg)pg.classList.add('active');
   if(el)el.classList.add('active');
-  // Dispara evento para módulos
+  // Dispara evento para módulos sem sobrescrever go()
   try{ document.dispatchEvent(new CustomEvent('lex:navigate',{detail:{page:page}})); }catch(e){}
-  // Chama render da página com fallback encadeado
-  setTimeout(function(){
-    try {
-      if (page==='prazos'    && typeof window.lexRenderPrazosAba==='function')   { window.lexRenderPrazosAba('pendente'); return; }
-      if (page==='processos' && typeof window.lexRenderProcAba==='function')      { window.lexRenderProcAba('ativo'); return; }
-      if (page==='emails'    && typeof window.lexRenderPublicacoes==='function')  { window.lexRenderPublicacoes(); return; }
-      if (typeof window.lexRenderPagina==='function') window.lexRenderPagina(page);
-    } catch(e) { console.warn('[go] render erro:', e.message); }
-  }, 150);
   if(page==='processos')carregarXLS2();
   if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var c2=document.getElementById('cliCount');if(c2)c2.textContent=CLIENTS_DATA.length+' clientes';}}
   if(page==='emails')carregarInbox();
@@ -592,20 +583,11 @@ function iniciarOAuth(){conectarGmail();}
 function salvarCredGmail(){var cid=(document.getElementById('cfgClientId')||{value:''}).value.trim();if(!cid){alert('Cole o Client ID do Google Cloud Console no campo CLIENT ID');return;}EMAIL.cfg.clientId=cid;DB.save('lex_gmail_cfg',EMAIL.cfg);toast('✅ Client ID salvo! Clique em Autorizar Gmail.','green');}
 function salvarCfgCompleta(){EMAIL.cfg.clientId=(document.getElementById('cfgClientId')||{value:''}).value||EMAIL.cfg.clientId;EMAIL.cfg.resp=parseInt((document.getElementById('cfgResp')||{value:'1'}).value)||1;DB.save('lex_gmail_cfg',EMAIL.cfg);closeModal('mEmailConfig');toast('Configurações salvas!','green');eLog('Configurações atualizadas','ok');}
 function ativarGmailUI(){var btn=document.getElementById('btnGmail');if(btn){btn.textContent='✅ Gmail Conectado';btn.style.background='rgba(62,207,207,.18)';btn.style.color='var(--teal)';}var badge=document.getElementById('gmailOkBadge');if(badge)badge.style.display='inline-block';var banner=document.getElementById('gmailBanner');if(banner){banner.style.display='flex';banner.textContent='✅ Gmail conectado e monitorando!';}}
-function carregarInbox(){if(!EMAIL.ok||!EMAIL.token){var il=document.getElementById('inboxList');if(il)il.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📭 Conecte o Gmail para ver publicações.</div>';return;}ativarGmailUI();var il=document.getElementById('inboxList');if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:var(--teal)">⏳ Carregando emails...</div>';var q='from:publicacoes@iprazos.adv.br OR from:publicacoes-diarios@jusbrasil.com.br OR from:nao-responda@trt9.jus.br';fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q='+encodeURIComponent(q)+'&maxResults=20',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){if(r.status===401){DB.save('lex_gmail_auth',null);EMAIL.ok=false;EMAIL.token='';if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:#f85149">⚠️ Token expirado — clique em Autorizar Gmail.</div>';return null;}return r.json();}).then(function(d){if(!d)return;if(!d.messages||!d.messages.length){if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">📭 Nenhuma publicação encontrada.</div>';return;}_fetchGmailList(d.messages.slice(0,15));}).catch(function(e){if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:#f85149">❌ '+e.message+'</div>';});}
+function carregarInbox(){if(!EMAIL.ok||!EMAIL.token){var il=document.getElementById('inboxList');if(il)il.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📭 Conecte o Gmail para ver publicações.</div>';return;}ativarGmailUI();var il=document.getElementById('inboxList');if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:var(--teal)">⏳ Carregando emails...</div>';var q='from:publicacoes@impacta.adv.br OR from:publicacoes-diarios@jusbrasil.com.br';fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q='+encodeURIComponent(q)+'&maxResults=20',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){if(r.status===401){DB.save('lex_gmail_auth',null);EMAIL.ok=false;EMAIL.token='';if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:#f85149">⚠️ Token expirado — clique em Autorizar Gmail.</div>';return null;}return r.json();}).then(function(d){if(!d)return;if(!d.messages||!d.messages.length){if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">📭 Nenhuma publicação encontrada.</div>';return;}_fetchGmailList(d.messages.slice(0,15));}).catch(function(e){if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:#f85149">❌ '+e.message+'</div>';});}
 function _fetchGmailList(msgs){var res=[];var done=0;msgs.forEach(function(m,idx){fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){return r.json();}).then(function(msg){var hdr={};(msg.payload&&msg.payload.headers||[]).forEach(function(h){hdr[h.name]=h.value;});res[idx]={id:m.id,from:hdr['From']||'',subject:hdr['Subject']||'(sem assunto)',date:hdr['Date']||'',snippet:(msg.snippet||'').substring(0,100)};done++;if(done===msgs.length)_renderInbox(res.filter(Boolean));}).catch(function(){done++;if(done===msgs.length)_renderInbox(res.filter(Boolean));});});}
 function _renderInbox(msgs){var il=document.getElementById('inboxList');if(!il)return;EMAIL._gmailMsgs=msgs;msgs.sort(function(a,b){return new Date(b.date)-new Date(a.date);});il.innerHTML=msgs.map(function(m,i){var isJB=m.from.toLowerCase().indexOf('jusbrasil')>=0;var fonte=isJB?'JusBrasil':'Impacta';var cor=isJB?'bo':'bteal';var d=new Date(m.date);var ds=isNaN(d.getTime())?m.date:d.toLocaleDateString('pt-BR');return '<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px" onclick="_parseGmail('+i+')"><span class="badge '+cor+'" style="font-size:10px;flex-shrink:0">'+fonte+'</span><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div><div style="font-size:11px;color:var(--text3)">'+ds+'</div></div><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();_parseGmail('+i+')">⚡ IA</button></div>';}).join('');}
 function _parseGmail(i){var m=EMAIL._gmailMsgs&&EMAIL._gmailMsgs[i];if(!m){toast('Email não encontrado','orange');return;}fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=full',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){return r.json();}).then(function(msg){var body='';function xb(p){if(p.mimeType==='text/plain'&&p.body&&p.body.data){try{body=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'));}catch(e){}}if(p.parts)p.parts.forEach(xb);}xb(msg.payload||{});parseEmail(body);}).catch(function(e){toast('Erro: '+e.message,'orange');});}
-function processarEmails(){
-  if(typeof window.lexImportarGmail==='function'){
-    window.lexImportarGmail();
-  } else if(EMAIL.ok && EMAIL.token){
-    toast('Importando publicações...','teal');
-    carregarInbox();
-  } else {
-    toast('Conecte o Gmail primeiro','orange');
-  }
-}
+function processarEmails(){toast('Nenhum e-mail novo na caixa','blue');}
 function extrairDados(texto,fonte){var d={fonte:fonte,cnjs:[],partes:'',mov:'',prazo:'',vara:'',datas:[],aud_data:'',aud_hora:'',raw:texto};var cnj=texto.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/g);if(cnj)d.cnjs=cnj;var pm=texto.match(/[Pp]artes?:\s*([^\n]+)/);if(pm)d.partes=pm[1].trim();var mm=texto.match(/[Mm]ovi(?:menta[çc][aã]o)?:\s*([^\n]+)/);if(mm)d.mov=mm[1].trim();var pz=texto.match(/[Pp]razo[:\s]+(\d{1,2}\/\d{1,2}\/\d{4})/);if(pz)d.prazo=pz[1];var vm=texto.match(/[Vv]ara:\s*([^\n]+)/);if(vm)d.vara=vm[1].trim();var dts=texto.match(/\d{1,2}\/\d{1,2}\/\d{4}/g);if(dts){var seen={};d.datas=dts.filter(function(x){return seen[x]?false:(seen[x]=true);});}if(!d.prazo&&d.datas.length>1)d.prazo=d.datas[d.datas.length-1];return d;}
 function isDup(d,fonte){if(fonte!=='jusbrasil')return false;for(var i=0;i<d.cnjs.length;i++)if(EMAIL.cnjs_impacta[d.cnjs[i]])return true;return false;}
 function parseEmail(texto){if(typeof texto!=='string'){var fonte=(document.getElementById('emailRem')||{value:'impacta'}).value;texto=(document.getElementById('emailBody')||{value:''}).value.trim();if(!texto){toast('Cole o conteúdo do e-mail primeiro','orange');return;}}var fonte2=(document.getElementById('emailRem')||{value:'impacta'}).value;var d=extrairDados(texto,fonte2);EMAIL.stats.total++;if(isDup(d,fonte2)){EMAIL.stats.dups++;eLog('DUPLICATA ignorada: '+(d.cnjs[0]||'CNJ desconhecido'),'warn');toast('Duplicata detectada — JusBrasil ignorado','orange');eKPI();return;}if(fonte2==='impacta')d.cnjs.forEach(function(c){EMAIL.cnjs_impacta[c]=true;});EMAIL._extracao=d;mostrarParser(d,fonte2);EMAIL.stats.procs+=d.cnjs.length;eLog('Processado: '+d.cnjs.length+' proc, prazo: '+(d.prazo||'não detectado'),'ok');eKPI();}
@@ -750,24 +732,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
   <!-- Módulos LexOfficeAT -->
-  <script src="gmail-module.js"></script>
+  <script src="lexofficeat-cleanup.js"></script>
   <script src="lexofficeat-sync.js"></script>
-  <script src="lexofficeat-core.js"></script>
-  <script src="lexofficeat-gestao.js"></script>
+  <script src="lexofficeat-automacao.js"></script>
+  <script src="lexofficeat-import-v3.js"></script>
+  <script src="lexofficeat-lexdb-render.js"></script>
+  <script src="lexofficeat-gmail-import.js"></script>
   <script src="lexofficeat-improvements.js"></script>
   <script src="lexofficeat-cnj-autofill.js"></script>
   <script src="lexofficeat-enhancements.js"></script>
+  <script src="lexofficeat-gmail-data.js"></script>
+  <script src="lexofficeat-seed-lexdb.js"></script>
+  <script src="lexofficeat-drive-admin.js"></script>
+  <script src="lexofficeat-gestao.js"></script>
+  <script src="lexofficeat-dashboard.js"></script>
   <script src="lexoffice-fixes.js"></script>
-<script>
-// Garante render do dashboard após todos os scripts carregarem
-window.addEventListener('load', function(){
-  setTimeout(function(){
-    if (typeof renderDash === 'function') renderDash();
-    if (typeof window.renderDashboardFull === 'function') window.renderDashboardFull();
-    // Re-emite o evento para o dashboard atual
-    try { document.dispatchEvent(new CustomEvent('lex:navigate',{detail:{page:'dashboard'}})); } catch(e){}
-    console.log('[LexAT] Dashboard render on load');
-  }, 1000);
-});
-</script>
 </body></html>
