@@ -218,8 +218,6 @@
     lista.sort(function (a, b) { return a._dias - b._dias; });
 
     /* monta painel */
-    var old = document.getElementById('lexPrazosPanel');
-    if (old) old.remove();
     var panel = document.createElement('div');
     panel.id = 'lexPrazosPanel';
     panel.style.padding = '12px';
@@ -249,12 +247,10 @@
       + '<tbody id="lexPrazosTbody"></tbody></table></div>';
     panel.appendChild(card);
 
-    var content = cont.querySelector('.content');
+    var content = document.getElementById('pg-prazos-content') || cont.querySelector('.content');
     if (!content) { content = document.createElement('div'); content.className = 'content'; cont.appendChild(content); }
-    /* limpa conteúdo estático */
-    Array.prototype.slice.call(content.children).forEach(function (c) { c.style.display = 'none'; });
-    content.insertBefore(panel, content.firstChild);
-    panel.style.display = 'block';
+    content.innerHTML = '';
+    content.appendChild(panel);
 
     var tbody = document.getElementById('lexPrazosTbody');
     if (!tbody) return;
@@ -342,7 +338,6 @@
     todos.forEach(function (p) { var s = p.status || 'ativo'; if (cnt[s] !== undefined) cnt[s]++; });
     var lista = filtro === 'todos' ? todos : todos.filter(function (p) { return (p.status || 'ativo') === filtro; });
 
-    var old = document.getElementById('lexProcPanel'); if (old) old.remove();
     var panel = document.createElement('div'); panel.id = 'lexProcPanel'; panel.style.padding = '12px';
 
     /* filtros */
@@ -370,11 +365,10 @@
       + '<tbody id="lexProcTbody"></tbody></table></div>';
     panel.appendChild(card);
 
-    var content = cont.querySelector('.content');
+    var content = document.getElementById('pg-processos-content') || cont.querySelector('.content');
     if (!content) { content = document.createElement('div'); content.className = 'content'; cont.appendChild(content); }
-    Array.prototype.slice.call(content.children).forEach(function (c) { c.style.display = 'none'; });
-    content.insertBefore(panel, content.firstChild);
-    panel.style.display = 'block';
+    content.innerHTML = '';
+    content.appendChild(panel);
 
     var tbody = document.getElementById('lexProcTbody');
     if (!tbody) return;
