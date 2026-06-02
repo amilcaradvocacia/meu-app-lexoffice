@@ -48,7 +48,6 @@
       GM.token    = savedToken;
       GM.tokenExp = savedExp;
       EMAIL.token = savedToken;
-      try { localStorage.setItem('lex_gmail_auth', savedToken); } catch(e) {}
       localStorage.setItem('lex_gmail_auth', savedToken);
       localStorage.setItem('lex_token_exp', String(savedExp));
       EMAIL.ok    = true;
@@ -102,9 +101,6 @@
 
     DB.save(TOKEN_KEY, token);
     DB.save(TOKEN_EXP_KEY, exp);
-    // Compatibilidade com gestao.js e core.js
-    try { localStorage.setItem('lex_gmail_auth', token); } catch(e) {}
-    try { localStorage.setItem('lex_token_exp', String(exp)); } catch(e) {}
     // Sincroniza com chaves usadas pelo import-v3
     localStorage.setItem('lex_gmail_auth', token);
     localStorage.setItem('lex_token_exp', String(exp));
