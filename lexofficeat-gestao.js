@@ -121,11 +121,16 @@
     var lista = filtro === 'todos' ? todos : todos.filter(function(p) { return p.status === filtro; });
     lista.sort(function(a, b) { return a.dias - b.dias; });
 
-    // Remove painel anterior
+    // Limpa conteúdo anterior e injeta painel fresco
+    var content = cont.querySelector('.content') || cont;
+    // Remove qualquer conteúdo estático/antigo
     var old = document.getElementById('lexPrazosPanel');
     if (old) old.remove();
+    // Limpa cards hardcoded (alert, sgrid, etc.) que podem estar no .content
+    Array.prototype.forEach.call(content.children, function(child) {
+      if (!child.id || child.id !== 'lexPrazosPanel') child.style.display = 'none';
+    });
 
-    // Cria painel
     var panel = document.createElement('div');
     panel.id = 'lexPrazosPanel';
     panel.style.padding = '12px';
@@ -160,8 +165,7 @@
       + '</table></div>';
     panel.appendChild(card);
 
-    // Injeta painel na página
-    var content = cont.querySelector('.content') || cont;
+    // Já obtivemos content acima — insere no início
     content.insertBefore(panel, content.firstChild);
 
     var tbody = document.getElementById('lexPrazosTbody');
@@ -286,8 +290,12 @@
 
     var lista = filtro === 'todos' ? todos : todos.filter(function(p) { return (p.status || 'ativo') === filtro; });
 
+    var content2 = cont.querySelector('.content') || cont;
     var old = document.getElementById('lexProcPanel');
     if (old) old.remove();
+    Array.prototype.forEach.call(content2.children, function(child) {
+      if (!child.id || child.id !== 'lexProcPanel') child.style.display = 'none';
+    });
 
     var panel = document.createElement('div');
     panel.id = 'lexProcPanel';
@@ -325,8 +333,7 @@
       + '</table></div>';
     panel.appendChild(card);
 
-    var content = cont.querySelector('.content') || cont;
-    content.insertBefore(panel, content.firstChild);
+    content2.insertBefore(panel, content2.firstChild);
 
     var tbody = document.getElementById('lexProcTbody');
     if (!tbody) return;
