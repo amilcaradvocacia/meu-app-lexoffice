@@ -307,8 +307,15 @@ function go(page,el){
   var pg=document.getElementById('pg-'+page);
   if(pg)pg.classList.add('active');
   if(el)el.classList.add('active');
-  // Dispara evento para módulos sem sobrescrever go()
+  // Dispara evento
   try{ document.dispatchEvent(new CustomEvent('lex:navigate',{detail:{page:page}})); }catch(e){}
+  // Renderiza conteúdo dinâmico
+  setTimeout(function(){
+    if(page==='prazos'&&typeof window.lexRenderPrazosAba==='function')    window.lexRenderPrazosAba('pendente');
+    if(page==='processos'&&typeof window.lexRenderProcAba==='function')   window.lexRenderProcAba('ativo');
+    if(page==='emails'&&typeof window.lexRenderPublicacoes==='function')  window.lexRenderPublicacoes();
+    if(page==='dashboard'&&typeof window.renderDashboardFull==='function')window.renderDashboardFull();
+  },200);
   if(page==='processos')carregarXLS2();
   if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var c2=document.getElementById('cliCount');if(c2)c2.textContent=CLIENTS_DATA.length+' clientes';}}
   if(page==='emails')carregarInbox();
