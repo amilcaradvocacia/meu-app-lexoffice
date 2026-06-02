@@ -309,10 +309,15 @@ function go(page,el){
   if(el)el.classList.add('active');
   // Dispara evento para módulos
   try{ document.dispatchEvent(new CustomEvent('lex:navigate',{detail:{page:page}})); }catch(e){}
-  // Chama renderPag diretamente para garantir conteúdo
+  // Chama render da página com fallback encadeado
   setTimeout(function(){
-    if(typeof window.lexRenderPagina==='function') window.lexRenderPagina(page);
-  }, 100);
+    try {
+      if (page==='prazos'    && typeof window.lexRenderPrazosAba==='function')   { window.lexRenderPrazosAba('pendente'); return; }
+      if (page==='processos' && typeof window.lexRenderProcAba==='function')      { window.lexRenderProcAba('ativo'); return; }
+      if (page==='emails'    && typeof window.lexRenderPublicacoes==='function')  { window.lexRenderPublicacoes(); return; }
+      if (typeof window.lexRenderPagina==='function') window.lexRenderPagina(page);
+    } catch(e) { console.warn('[go] render erro:', e.message); }
+  }, 150);
   if(page==='processos')carregarXLS2();
   if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var c2=document.getElementById('cliCount');if(c2)c2.textContent=CLIENTS_DATA.length+' clientes';}}
   if(page==='emails')carregarInbox();
