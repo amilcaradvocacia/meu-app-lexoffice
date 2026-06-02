@@ -318,7 +318,8 @@ function go(page,el){
   },200);
   if(page==='processos')carregarXLS2();
   if(page==='clientes'){if(!CLIENTS_LOADED)carregarClientes2();else{renderClientesTable();var c2=document.getElementById('cliCount');if(c2)c2.textContent=CLIENTS_DATA.length+' clientes';}}
-  if(page==='emails')carregarInbox();
+  // carregarInbox() removido do go() — chamada automática travava o sistema
+  // Use o botão "⚡ Processar Tudo" na aba Publicações
 }
 function openModal(id){
   var el=document.getElementById(id);
@@ -590,7 +591,17 @@ function iniciarOAuth(){conectarGmail();}
 function salvarCredGmail(){var cid=(document.getElementById('cfgClientId')||{value:''}).value.trim();if(!cid){alert('Cole o Client ID do Google Cloud Console no campo CLIENT ID');return;}EMAIL.cfg.clientId=cid;DB.save('lex_gmail_cfg',EMAIL.cfg);toast('✅ Client ID salvo! Clique em Autorizar Gmail.','green');}
 function salvarCfgCompleta(){EMAIL.cfg.clientId=(document.getElementById('cfgClientId')||{value:''}).value||EMAIL.cfg.clientId;EMAIL.cfg.resp=parseInt((document.getElementById('cfgResp')||{value:'1'}).value)||1;DB.save('lex_gmail_cfg',EMAIL.cfg);closeModal('mEmailConfig');toast('Configurações salvas!','green');eLog('Configurações atualizadas','ok');}
 function ativarGmailUI(){var btn=document.getElementById('btnGmail');if(btn){btn.textContent='✅ Gmail Conectado';btn.style.background='rgba(62,207,207,.18)';btn.style.color='var(--teal)';}var badge=document.getElementById('gmailOkBadge');if(badge)badge.style.display='inline-block';var banner=document.getElementById('gmailBanner');if(banner){banner.style.display='flex';banner.textContent='✅ Gmail conectado e monitorando!';}}
-function carregarInbox(){if(!EMAIL.ok||!EMAIL.token){var il=document.getElementById('inboxList');if(il)il.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3);font-size:13px">📭 Conecte o Gmail para ver publicações.</div>';return;}ativarGmailUI();var il=document.getElementById('inboxList');if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:var(--teal)">⏳ Carregando emails...</div>';var q='from:publicacoes@impacta.adv.br OR from:publicacoes-diarios@jusbrasil.com.br';fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages?q='+encodeURIComponent(q)+'&maxResults=20',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){if(r.status===401){DB.save('lex_gmail_auth',null);EMAIL.ok=false;EMAIL.token='';if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:#f85149">⚠️ Token expirado — clique em Autorizar Gmail.</div>';return null;}return r.json();}).then(function(d){if(!d)return;if(!d.messages||!d.messages.length){if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:var(--text3)">📭 Nenhuma publicação encontrada.</div>';return;}_fetchGmailList(d.messages.slice(0,15));}).catch(function(e){if(il)il.innerHTML='<div style="text-align:center;padding:14px;color:#f85149">❌ '+e.message+'</div>';});}
+function carregarInbox(){
+  // Renderiza publicações do LexDB local (não faz fetch automático)
+  if(typeof window.lexRenderPublicacoes==='function'){
+    window.lexRenderPublicacoes();
+  } else {
+    var il=document.getElementById('inboxList');
+    if(il && (!EMAIL.ok || !EMAIL.token)){
+      il.innerHTML='<div style="text-align:center;padding:24px;color:var(--text3)">Conecte o Gmail e clique <b>⚡ Processar Tudo</b> para importar publicações.</div>';
+    }
+  }
+}
 function _fetchGmailList(msgs){var res=[];var done=0;msgs.forEach(function(m,idx){fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=metadata&metadataHeaders=From&metadataHeaders=Subject&metadataHeaders=Date',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){return r.json();}).then(function(msg){var hdr={};(msg.payload&&msg.payload.headers||[]).forEach(function(h){hdr[h.name]=h.value;});res[idx]={id:m.id,from:hdr['From']||'',subject:hdr['Subject']||'(sem assunto)',date:hdr['Date']||'',snippet:(msg.snippet||'').substring(0,100)};done++;if(done===msgs.length)_renderInbox(res.filter(Boolean));}).catch(function(){done++;if(done===msgs.length)_renderInbox(res.filter(Boolean));});});}
 function _renderInbox(msgs){var il=document.getElementById('inboxList');if(!il)return;EMAIL._gmailMsgs=msgs;msgs.sort(function(a,b){return new Date(b.date)-new Date(a.date);});il.innerHTML=msgs.map(function(m,i){var isJB=m.from.toLowerCase().indexOf('jusbrasil')>=0;var fonte=isJB?'JusBrasil':'Impacta';var cor=isJB?'bo':'bteal';var d=new Date(m.date);var ds=isNaN(d.getTime())?m.date:d.toLocaleDateString('pt-BR');return '<div style="padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:10px" onclick="_parseGmail('+i+')"><span class="badge '+cor+'" style="font-size:10px;flex-shrink:0">'+fonte+'</span><div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+m.subject+'</div><div style="font-size:11px;color:var(--text3)">'+ds+'</div></div><button class="btn btn-ghost btn-xs" onclick="event.stopPropagation();_parseGmail('+i+')">⚡ IA</button></div>';}).join('');}
 function _parseGmail(i){var m=EMAIL._gmailMsgs&&EMAIL._gmailMsgs[i];if(!m){toast('Email não encontrado','orange');return;}fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/'+m.id+'?format=full',{headers:{'Authorization':'Bearer '+EMAIL.token}}).then(function(r){return r.json();}).then(function(msg){var body='';function xb(p){if(p.mimeType==='text/plain'&&p.body&&p.body.data){try{body=atob(p.body.data.replace(/-/g,'+').replace(/_/g,'/'));}catch(e){}}if(p.parts)p.parts.forEach(xb);}xb(msg.payload||{});parseEmail(body);}).catch(function(e){toast('Erro: '+e.message,'orange');});}
