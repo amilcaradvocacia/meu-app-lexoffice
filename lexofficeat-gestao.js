@@ -388,6 +388,26 @@
   // ── Expõe funções globais ─────────────────────────────────
   window.lexRenderPrazosAba  = renderAbaPrazos;
   window.lexRenderProcAba    = renderAbaProcessos;
+  window.lexRenderPublicacoes = function(){
+    var el=document.getElementById('inboxList');
+    if(el){
+      var pubs=[];
+      try{pubs=JSON.parse(localStorage.getItem('lexat_publicacoes')||'[]');}catch(e){}
+      pubs=pubs.slice(-100).reverse();
+      if(!pubs.length){el.innerHTML='<div style="color:var(--text3);padding:24px;text-align:center">Sem publicações. Conecte Gmail e clique Processar.</div>';return;}
+      el.innerHTML='';
+      pubs.forEach(function(pub){
+        var d=document.createElement('div');d.className='ditem';
+        d.style.cssText='flex-direction:column;gap:4px;margin-bottom:6px;cursor:pointer;padding:10px;border-radius:8px;border:1px solid var(--border)';
+        var dt=(pub.data_pub||pub.createdAt||'').slice(0,10).split('-').reverse().join('/');
+        var src=pub.fonte==='trt9_push'?'TRT9 Push':pub.fonte==='jusbrasil'?'JusBrasil':'Impacta';
+        var sc=pub.fonte==='trt9_push'?'bteal':'bo';
+        d.innerHTML='<div style="display:flex;align-items:center;gap:7px"><span class="badge '+sc+'" style="font-size:10px">'+src+'</span><span style="font-size:11px;color:var(--teal);font-family:monospace">'+(pub.cnj||'').slice(0,25)+'</span><span style="font-size:10px;color:var(--text3);margin-left:auto">'+dt+'</span></div><div><span style="font-size:12px;color:var(--gold);font-weight:600">'+(pub.nosso_cliente||'').slice(0,30)+'</span>'+(pub.adverso?' <span style="font-size:12px;color:var(--text2)">vs '+(pub.adverso||'').slice(0,25)+'</span>':'')+'</div>'+((pub.movimentacao||'').slice(0,100)?'<div style="font-size:11px;color:var(--text2);border-top:1px solid var(--border);padding-top:4px">'+(pub.movimentacao||'').slice(0,100)+'</div>':'');
+        d.onclick=function(){if(pub.cnj){var ci=document.getElementById('cnj_input_api');if(ci)ci.value=pub.cnj;if(typeof openModal==='function')openModal('mProcesso');}};
+        el.appendChild(d);
+      });
+    }
+  };
 
   // ── Hook no go() ─────────────────────────────────────────
   function hookGo() {
