@@ -41,16 +41,15 @@
         .card-value { font-size: 28px; font-weight: 700; margin-top: 8px; }
         
         #lexat-api-panel { background: linear-gradient(135deg,rgba(201,168,76,.08),rgba(201,168,76,.03)); border:1px solid rgba(201,168,76,.3); border-radius:14px; padding:18px; margin-bottom:16px; }
+        .status-badge { display: inline-block; padding: 4px 8px; background: #e2e8f0; border-radius: 6px; font-size: 12px; font-weight: 500; }
+        .status-loading { background: #fef3c7; color: #d97706; }
+        .status-ready { background: #dcfce7; color: #15803d; }
     </style>
 
     <script>
-        // Manutenção retrocompatível com os Workers existentes
-        if (!localStorage.getItem('lex_datajud_proxy')) {
-            localStorage.setItem('lex_datajud_proxy', 'https://lexoffice-datajud.amilcaradvocacia.workers.dev');
-        }
-        if (!localStorage.getItem('cortex_datajud_proxy')) {
-            localStorage.setItem('cortex_datajud_proxy', 'https://lexoffice-datajud.amilcaradvocacia.workers.dev');
-        }
+        // Sincronização automática de caminhos do ecossistema CorTex
+        localStorage.setItem('lex_datajud_proxy', 'https://lexoffice-datajud.amilcaradvocacia.workers.dev');
+        localStorage.setItem('cortex_datajud_proxy', 'https://lexoffice-datajud.amilcaradvocacia.workers.dev');
     </script>
 </head>
 <body>
@@ -79,8 +78,8 @@
         <main class="main-content">
             <header class="header">
                 <h2 style="font-size: 24px; font-weight: 700; color: #0f172a;">Painel de Controle Central</h2>
-                <div style="font-size: 14px; color: var(--text-muted);" id="user-area">
-                    Módulo de Operações Conectado
+                <div style="font-size: 14px;" id="user-area">
+                    <span id="engine-status" class="status-badge status-loading">Iniciando Varredura Automática...</span>
                 </div>
             </header>
 
@@ -95,28 +94,28 @@
                         </div>
                         <div>
                             <label style="font-size:11px; color:var(--text); display:block; margin-bottom:4px;">📁 ID Pasta Clientes (Drive)</label>
-                            <input type="text" id="lexat-drive_id" value="1xoBLeDu6LKNHHJO-q2pNU0WwxdrLJ snt" style="width:100%; padding:8px; border-radius:9px; background:var(--surface); border:1px solid var(--border); font-size:13px;">
+                            <input type="text" id="lexat-drive_id" value="1xoBLeDu6LKNHHJO-q2pNU0WwxdrLJsnt" style="width:100%; padding:8px; border-radius:9px; background:var(--surface); border:1px solid var(--border); font-size:13px;">
                         </div>
                     </div>
                 </div>
 
-                <!-- Cards com seletores originais para injeção de dados dos scripts -->
+                <!-- Painel de Dados -->
                 <div class="grid-stats">
-                    <div class="card-stat" id="card-processos">
+                    <div class="card-stat">
                         <div class="card-title">Processos Monitorados</div>
-                        <div class="card-value" id="pg-processos-count">...</div>
+                        <div class="card-value" id="pg-processos-count">Carregando...</div>
                     </div>
-                    <div class="card-stat" id="card-prazos">
+                    <div class="card-stat">
                         <div class="card-title">Prazos Ativos</div>
-                        <div class="card-value" id="pg-prazos-count" style="color: var(--accent);">...</div>
+                        <div class="card-value" id="pg-prazos-count" style="color: var(--accent);">Carregando...</div>
                     </div>
-                    <div class="card-stat" id="card-clientes">
+                    <div class="card-stat">
                         <div class="card-title">Clientes na Carteira</div>
-                        <div class="card-value" id="total-clientes-count">...</div>
+                        <div class="card-value" id="total-clientes-count">Carregando...</div>
                     </div>
                 </div>
 
-                <!-- Containers nativos exigidos pelos arquivos de renderização locais -->
+                <!-- Locais de Injeção das Automações -->
                 <div id="pg-documentos" class="page" style="margin-bottom: 20px;"></div>
                 <div id="pg-audiencias" class="page"></div>
                 <div id="main-render-area"></div>
@@ -124,28 +123,59 @@
         </main>
     </div>
 
-    <!-- Scripts do Repositório carregados de forma sequencial e segura -->
-    <script src="dados_clientes.js"></script>
-    <script src="lexofficeat-core.js"></script>
-    <script src="lexofficeat-dashboard.js"></script>
-    <script src="lexofficeat-enhancements.js"></script>
-    <script src="lexofficeat-gestao.js"></script>
-    
+    <!-- CARREGADOR AUTOMÁTICO ANTI-TRAVAMENTO (BUSA OS ARQUIVOS E SE COLOQUEM SEM DEPENDER DE CACHE) -->
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            console.log("[CorTex] Interface pronta e integrada.");
-            // Garante exibição básica caso os scripts demorem a computar os arrays do banco local
-            setTimeout(() => {
-                if(document.getElementById('pg-processos-count').innerText === '...') {
-                    document.getElementById('pg-processos-count').innerText = '0';
-                }
-                if(document.getElementById('pg-prazos-count').innerText === '...') {
-                    document.getElementById('pg-prazos-count').innerText = '0';
-                }
-                if(document.getElementById('total-clientes-count').innerText === '...') {
-                    document.getElementById('total-clientes-count').innerText = 'Conectado';
-                }
-            }, 1500);
+        const scriptsParaCarregar = [
+            'dados_clientes.js',
+            'lexofficeat-core.js',
+            'lexofficeat-dashboard.js',
+            'lexofficeat-enhancements.js',
+            'lexofficeat-gestao.js'
+        ];
+
+        function carregarScriptsEmSequencia(lista, index = 0) {
+            if (index >= lista.length) {
+                console.log("[CorTex] Todos os processos internos foram acoplados com sucesso.");
+                document.getElementById('engine-status').className = "status-badge status-ready";
+                document.getElementById('engine-status').innerText = "Módulo CorTex Operacional";
+                
+                // Executa funções de renderização nativas se presentes nos arquivos injetados
+                if (typeof atualizarDashboard === "function") atualizarDashboard();
+                if (typeof inicializarTabelas === "function") inicializarTabelas();
+                
+                // Fallback de segurança para remover o estado eterno de 'Carregando' se o array local estiver vazio
+                setTimeout(() => {
+                    ['pg-processos-count', 'pg-prazos-count'].forEach(id => {
+                        let el = document.getElementById(id);
+                        if(el && (el.innerText === 'Carregando...' || el.innerText === '...')) el.innerText = '0';
+                    });
+                    let elCli = document.getElementById('total-clientes-count');
+                    if(elCli && elCli.innerText === 'Carregando...') elCli.innerText = 'Conectado';
+                }, 1000);
+                return;
+            }
+
+            const scriptUrl = lista[index] + '?v=' + new Date().getTime(); // Quebra o cache de forma agressiva
+            const script = document.createElement('script');
+            script.src = scriptUrl;
+            script.async = false; // Garante ordem de execução estrita para não quebrar dependências mútuas
+            
+            script.onload = () => {
+                console.log(`[CorTex Engine] Carregado autonomamente: ${lista[index]}`);
+                carregarScriptsEmSequencia(lista, index + 1);
+            };
+            
+            script.onerror = () => {
+                console.error(`[CorTex Falha] Arquivo indisponível ou bloqueado: ${lista[index]}. Tentando próximo...`);
+                carregarScriptsEmSequencia(lista, index + 1);
+            };
+
+            document.body.appendChild(script);
+        }
+
+        // Dispara o motor de busca automática assim que a página renderizar o HTML básico
+        window.addEventListener('DOMContentLoaded', () => {
+            carregarScriptsEmSequencia(scriptsParaCarregar);
         });
     </script>
 </body>
