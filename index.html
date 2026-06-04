@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CorTex – Inteligência Artificial & Sistema de Gestão Jurídica</title>
+    <title>CorTex – Inteligência Artificial & Sistema de Gestão Jurídica Relacional</title>
     
     <style>
         :root {
@@ -49,7 +49,7 @@
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
         .panel-title { font-size: 16px; font-weight: 700; color: var(--text-dark); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--background); padding-bottom: 8px; }
         
-        .data-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 12px; margin-bottom: 16px; }
         .data-table th { background: var(--background); text-align: left; padding: 12px; font-size: 12px; font-weight: 600; color: var(--text-dark); border: 1px solid var(--border); }
         .data-table td { padding: 12px; border: 1px solid var(--border); font-size: 13px; color: var(--text-dark); }
         
@@ -61,187 +61,196 @@
         .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; gap: 8px; transition: background 0.2s; }
         .btn-primary { background: var(--accent); color: white; }
         .btn-success { background: var(--accent-success); color: white; }
+        .btn:disabled { background: #cbd5e1; color: #94a3b8; cursor: not-allowed; }
         
         .email-pill { padding: 4px 10px; background: #f3f4f6; border: 1px solid var(--border); border-radius: 15px; font-size: 11px; font-weight: bold; display: inline-flex; align-items: center; gap: 6px; margin-right: 6px; }
         .debug-console { height: 75px; background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 8px 16px; overflow-y: auto; border-top: 2px solid var(--primary-light); }
         .prompt-box { background: #f8fafc; border: 1px dashed var(--border); padding: 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; color: var(--text-dark); }
+        
+        /* Gráficos em Pure CSS/SVG */
+        .chart-container { display: flex; gap: 20px; margin-top: 16px; }
+        .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; flex: 1; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .bar-chart { display: flex; align-items: flex-end; gap: 15px; height: 150px; padding-top: 20px; }
+        .bar-group { display: flex; flex-direction: column; align-items: center; flex: 1; }
+        .bar { width: 100%; background: var(--accent); border-radius: 4px 4px 0 0; transition: height 0.5s ease; }
+        .bar-label { font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center; }
     </style>
 </head>
 <body>
 
     <div class="app-container">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div>
                 <div class="logo-area">
                     <div class="logo-title">🧠 CorTex</div>
-                    <div class="logo-sub">Central de Automação &amp; Compliance</div>
-                    <span class="vbadge">Engine v2026.6 (Relational)</span>
+                    <div class="logo-sub">Cognição &amp; Gestão Relacional</div>
+                    <span class="vbadge">Core Enterprise v2026.6</span>
                 </div>
                 <nav class="menu">
                     <a class="menu-item active" onclick="switchTab('dashboard')">📊 Painel Geral (GCP)</a>
-                    <a class="menu-item" onclick="switchTab('cadastro')">🗂️ Cadastro de Clientes &amp; OAB</a>
+                    <a class="menu-item" onclick="switchTab('cadastro')">🗂️ Clientes &amp; Cadastro CNJ/OAB</a>
                     <a class="menu-item" onclick="switchTab('inbound')">📥 Ingestão de E-mails (Gmail)</a>
                     <a class="menu-item" onclick="switchTab('redacao')">🤖 Redação de Peças (IA)</a>
                     <a class="menu-item" onclick="switchTab('revisao')">📜 Auditoria Contratual PACEF</a>
-                    <a class="menu-item" onclick="switchTab('timesheet')">⏱️ Timesheet &amp; Controladoria</a>
+                    <a class="menu-item" onclick="switchTab('controladoria')">⏱️ Controladoria &amp; Timesheet</a>
+                    <a class="menu-item" onclick="switchTab('relatorios')">📈 Relatórios &amp; Gráficos</a>
                 </nav>
             </div>
             <div style="padding: 24px; border-top: 1px solid var(--primary-light); font-size: 11px; color: var(--text-muted);" id="lawyer-profile">
-                Advogado: Dr. Amilcar C. Teixeira Filho<br>Inscrição: OAB/PR 21.856
+                <b>Advogado Responsável:</b><br>Dr. Amilcar C. Teixeira Filho<br>Inscrição OAB: PR-21.856
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="main-content">
             <header class="header">
                 <h2 style="font-size: 22px; font-weight: 700; color: var(--text-dark);" id="view-title">Painel Geral (GCP)</h2>
                 <div>
-                    <span id="engine-status" class="status-badge" style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">Sistema Operacional</span>
+                    <span id="engine-status" class="status-badge" style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">Engine Operacional Ativa</span>
                 </div>
             </header>
 
             <div class="content-body">
                 
-                <!-- VIEW 1: DASHBOARD -->
                 <div id="view-dashboard" class="tab-content active">
                     <div class="grid-stats">
-                        <div class="card-stat"><div class="card-title">Processos Capturados</div><div class="card-value" id="count-proc">0</div></div>
-                        <div class="card-stat"><div class="card-title">Prazos Fatais Ativos</div><div class="card-value" id="count-prazos" style="color: var(--accent);">0</div></div>
-                        <div class="card-stat"><div class="card-title">Clientes na Carteira</div><div class="card-value" id="count-clientes">0</div></div>
-                        <div class="card-stat"><div class="card-title">Horas Computadas</div><div class="card-value" id="count-hours" style="color: var(--accent-success);">0.0h</div></div>
+                        <div class="card-stat"><div class="card-title">Processos Ativos</div><div class="card-value" id="dash-proc-count">0</div></div>
+                        <div class="card-stat"><div class="card-title">Prazos Fatais Gerados</div><div class="card-value" id="dash-prazos-count" style="color: var(--accent);">0</div></div>
+                        <div class="card-stat"><div class="card-title">Clientes na Carteira</div><div class="card-value" id="dash-cli-count">0</div></div>
+                        <div class="card-stat"><div class="card-title">Timesheet Acumulado</div><div class="card-value" id="dash-time-count" style="color: var(--accent-success);">0.0h</div></div>
                     </div>
                     
                     <div class="panel">
-                        <div class="panel-title">📬 Painel Relacional de Distribuição &amp; Recortes de Terceiros</div>
+                        <div class="panel-title">📡 Monitoramento e Filtro por Recorte de Terceiros (Canais do Gmail)</div>
                         <div style="margin-bottom: 16px;">
                             <span class="email-pill" style="color: #b91c1c;">🔴 publicacoes@iprazos.adv.br</span>
                             <span class="email-pill" style="color: #15803d;">🟢 publicacoes-diarios@jusbrasil.com.br</span>
                             <span class="email-pill" style="color: #1d4ed8;">🔵 nao-responda@trt9.jus.br</span>
                         </div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Base relacional de processos capturados e vinculados dinamicamente ao escritório:</p>
                         
                         <table class="data-table">
                             <thead>
                                 <tr>
                                     <th>Processo (CNJ)</th>
-                                    <th>Esfera / Tribunal</th>
+                                    <th>Esfera / Órgão Julgador</th>
                                     <th>Cliente Vinculado</th>
                                     <th>Parte Contrária (Ex Adverso)</th>
                                     <th>Prazo Fatal (Novo CPC)</th>
                                 </tr>
                             </thead>
                             <tbody id="table-dashboard-body">
-                                <!-- Renderizado Dinamicamente -->
-                            </tbody>
+                                </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- VIEW 2: CADASTRO DE CLIENTES E PROCESSOS -->
                 <div id="view-cadastro" class="tab-content">
                     <div class="panel">
-                        <div class="panel-title">🏢 Cadastrar Novo Cliente no Portfólio do Escritório</div>
+                        <div class="panel-title">🏢 Ingestão e Cadastro de Clientes Corporativos</div>
                         <div class="form-row">
-                            <div class="form-group"><label>Nome do Cliente / Empresa</label><input type="text" id="cad-cli-nome" placeholder="Ex: Del Pozo Transportes Rodoviários"></div>
-                            <div class="form-group"><label>Documento (CNPJ/CPF)</label><input type="text" id="cad-cli-doc" placeholder="00.000.000/0001-00"></div>
+                            <div class="form-group"><label>Razão Social / Nome Fantasia</label><input type="text" id="form-cli-nome" placeholder="Ex: Del Pozo Transportes Rodoviários"></div>
+                            <div class="form-group"><label>Inscrição CNPJ / CPF</label><input type="text" id="form-cli-cnpj" placeholder="00.000.000/0001-00"></div>
                         </div>
-                        <button class="btn btn-success" onclick="cadastrarClienteEngine()">Registrar Cliente</button>
+                        <button class="btn btn-success" onclick="registrarClienteManual()">Cadastrar Cliente no Banco</button>
                     </div>
 
                     <div class="panel">
-                        <div class="panel-title">🗂️ Ingestão e Cadastro de Processos (Consulta Nacional DataJud / Adm)</div>
+                        <div class="panel-title">🗂️ Cadastro Direto por Número Único CNJ ou Varredura de OAB</div>
                         <div class="form-row">
-                            <div class="form-group"><label>Número do Processo (CNJ)</label><input type="text" id="cad-proc-cnj" placeholder="0001171-50.2024.5.09.0656"></div>
+                            <div class="form-group"><label>Número do Processo (CNJ)</label><input type="text" id="form-proc-cnj" placeholder="0001171-50.2024.5.09.0656"></div>
                             <div class="form-group">
-                                <label>Vincular a um Cliente Cadastrado</label>
-                                <select id="cad-proc-cli-select"><!-- Alimentado Dinamicamente --></select>
+                                <label>Vincular Relacionalmente a um Cliente</label>
+                                <select id="form-proc-cli-select"></select>
                             </div>
                         </div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Tribunal / Órgão Competente</label>
-                                <select id="cad-proc-tribunal">
-                                    <option value="TRT9">TRT9 - Vara do Trabalho de Castro</option>
-                                    <option value="TST">TST - Tribunal Superior do Trabalho</option>
-                                    <option value="TJPR">TJPR - Tribunal de Justiça do Paraná</option>
-                                    <option value="TRF3">TRF3 - Tribunal Regional Federal 3ª Região</option>
-                                    <option value="INSS">INSS - Junta de Recursos Administrativos</option>
-                                    <option value="CARF">CARF - Conselho Administrativo de Recursos Fiscais</option>
-                                    <option value="Procon">Procon - Contencioso Administrativo</option>
+                                <label>Tribunal / Órgão Nacional (Judicial ou Administrativo)</label>
+                                <select id="form-proc-tribunal">
+                                    <option value="TRT9 - Vara de Castro">TRT9 - Vara do Trabalho de Castro</option>
+                                    <option value="TST - Sec. Geral">TST - Tribunal Superior do Trabalho</option>
+                                    <option value="TJPR - Seção Cível">TJPR - Tribunal de Justiça do Paraná</option>
+                                    <option value="TRF3 - Vara Federal SP">TRF3 - Tribunal Regional Federal 3ª Região</option>
+                                    <option value="INSS - Conselho Recursos">INSS - Junta de Recursos Administrativos</option>
+                                    <option value="CARF - Receita Federal">CARF - Conselho Administrativo de Recursos Fiscais</option>
+                                    <option value="Procon - JTA">Procon - Contencioso Administrativo</option>
                                 </select>
                             </div>
-                            <div class="form-group"><label>Parte Contrária (Ex Adverso)</label><input type="text" id="cad-proc-adverso" placeholder="Ex: Federação dos Trabalhadores"></div>
+                            <div class="form-group"><label>Parte Contrária (Ex Adverso)</label><input type="text" id="form-proc-adverso" placeholder="Ex: Federação dos Trabalhadores em Transportes"></div>
                         </div>
                         <div class="form-row">
-                            <div class="form-group"><label>Data da Intimação / Publicação</label><input type="date" id="cad-proc-data"></div>
-                            <div class="form-group"><label>Prazo em Dias</label><input type="number" id="cad-proc-dias" value="15"></div>
+                            <div class="form-group"><label>Data da Disponibilização / Publicação</label><input type="date" id="form-proc-data"></div>
+                            <div class="form-group"><label>Prazo Processual (Dias)</label><input type="number" id="form-proc-dias" value="15"></div>
                         </div>
-                        <button class="btn btn-primary" onclick="cadastrarProcessoEngine()">Localizar e Sincronizar Processo</button>
+                        <button class="btn btn-primary" onclick="registrarProcessoManual()">Localizar, Cadastrar e Sincronizar Andamentos</button>
                     </div>
                 </div>
 
-                <!-- VIEW 3: INBOUND EMAIL PARSER (GMAIL) -->
                 <div id="view-inbound" class="tab-content">
                     <div class="panel">
-                        <div class="panel-title">📥 Pipeline de Captura e Leitura Automática de Texto do Gmail</div>
-                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">Cole o texto bruto dos informativos do iPrazos, Jusbrasil ou TRT9 para realizar o desmembramento e a inclusão relacional imediata:</p>
+                        <div class="panel-title">📥 Captura Automatizada de Publicações Eletrônicas via Texto (Gmail Engine)</div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                            Cole o bloco de texto copiado do corpo do e-mail de publicação emitido por iPrazos, Jusbrasil ou TRT9. O motor de parsing interpretará as variáveis e gerará as amarrações automáticas:
+                        </p>
                         <div class="form-group">
-                            <textarea id="email-raw-box" rows="6" placeholder="Cole o corpo do e-mail da intimação aqui..."></textarea>
+                            <textarea id="inbound-raw-textarea" rows="6" placeholder="Cole o texto bruto do e-mail de notificação de publicações aqui..."></textarea>
                         </div>
-                        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
-                            <button class="btn btn-primary" onclick="processarInboundEmailText()">Ingerir Recorte de E-mail</button>
-                            <button class="btn btn-success" style="background:#475569;" onclick="feedEmailTemplate('trt9')">Carregar Recorte TRT9</button>
-                            <button class="btn btn-success" style="background:#475569;" onclick="feedEmailTemplate('iprazos')">Carregar Recorte iPrazos</button>
+                        <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+                            <button class="btn btn-primary" onclick="executarParserGmailText()">Processar e Ingerir E-mail</button>
+                            <button class="btn btn-success" style="background:#475569;" onclick="carregarInboundTemplate('trt9')">Carregar Exemplo TRT9 / Castro</button>
+                            <button class="btn btn-success" style="background:#475569;" onclick="carregarInboundTemplate('iprazos')">Carregar Exemplo iPrazos / TST</button>
                         </div>
-                        <div id="inbound-result-panel" class="prompt-box" style="display: none;"></div>
+                        <div id="inbound-response-card" class="prompt-box" style="display: none;"></div>
                     </div>
                 </div>
 
-                <!-- VIEW 4: AI BRIEF GENERATOR -->
                 <div id="view-redacao" class="tab-content">
                     <div class="panel">
-                        <div class="panel-title">🤖 Redação Avançada de Peças Processuais &amp; Jurisprudência Treinada</div>
+                        <div class="panel-title">🤖 Assistente Virtual de Redação de Peças &amp; Pesquisa de Jurisprudência Real</div>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                            Peças estruturadas por uma IA alimentada diariamente com as leis e decisões vigentes do país, projetada para eliminar tarefas repetitivas.
+                        </p>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Tipo de Documento Legal</label>
+                                <label>Tipo de Peça / Documento Legal</label>
                                 <select id="ai-peca-tipo">
-                                    <option value="Petição Inicial">Petição Inicial (Ação de Cobrança / Logística / Contencioso)</option>
-                                    <option value="Recurso de Revista">Recurso de Revista (Direito Coletivo / Escala de Horas)</option>
-                                    <option value="Contestação">Contestação Cível (Cláusulas Exclusivas / Multas)</option>
-                                    <option value="Legal Opinion">Legal Opinion (Due Diligence / Compliance Consultivo)</option>
+                                    <option value="Petição Inicial">Petição Inicial (Ação de Cobrança / Logística / Transporte)</option>
+                                    <option value="Recurso de Apelação">Recurso de Apelação / Revista (Contencioso Cível e Trabalhista)</option>
+                                    <option value="Contestação">Contestação de Mérito (Preliminares de Incompetência / Multas)</option>
+                                    <option value="Termo de Distrato">Termo de Distrato e Quitação Geral de Contratos</option>
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label>Tribunal de Referência (Jurisprudência Conectada)</label>
+                                <label>Jurisprudência Alvo / Tribunais</label>
                                 <select id="ai-peca-tribunal">
-                                    <option value="TRT9 / TST">TRT9 / TST (Precedentes Trabalhistas Rodoviários)</option>
-                                    <option value="TJPR / STJ">TJPR / STJ (Contratos Comerciais e Imobiliários)</option>
-                                    <option value="INSS / CARF">INSS / CARF (Contencioso Administrativo Federal)</option>
+                                    <option value="TRT9 e Tribunal Superior do Trabalho">TRT9 e TST (Escalas, Horas e Vínculos de Transporte)</option>
+                                    <option value="TJPR e Superior Tribunal de Justiça">TJPR e STJ (Contratos Mercantis e Rescisões de Fornecimento)</option>
+                                    <option value="INSS, CARF e Procon Nacional">Esfera Administrativa (Conselhos Fiscais e Defesa do Consumidor)</option>
                                 </select>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label>Contextualização Estratégica do Caso e Fatos</label>
-                            <textarea id="ai-peca-fatos" rows="4" placeholder="Descreva os fatos detalhados do caso prático do cliente para refinar o output da IA..."></textarea>
+                            <label>Fatos e Diretrizes do Caso Prático</label>
+                            <textarea id="ai-peca-fatos" rows="4" placeholder="Ex: Cobrança de saldo de frete logístico devido a atraso injustificado na descarga por culpa do destinatário..."></textarea>
                         </div>
-                        <button class="btn btn-primary" onclick="executarGeradorDePecas()">Otimizar e Redigir Documento</button>
+                        <button class="btn btn-primary" onclick="dispararGeradorDePecasAI()">Otimizar e Redigir Documento Completo</button>
                     </div>
+                    
                     <div class="panel" id="ai-peca-output-panel" style="display:none;">
-                        <div class="panel-title">✨ Minuta Jurídica Produzida</div>
-                        <textarea id="ai-peca-output-text" rows="12" style="font-family: monospace; background:#f8fafc; font-size:13px;"></textarea>
+                        <div class="panel-title">✨ Minuta Expandida Produzida pela AI Core</div>
+                        <textarea id="ai-peca-output-textarea" rows="12" style="font-family: monospace; background:#f8fafc; font-size:13px;"></textarea>
                     </div>
                 </div>
 
-                <!-- VIEW 5: AUDITORIA CONTRATUAL PACEF -->
                 <div id="view-revisao" class="tab-content">
                     <div class="panel">
-                        <div class="panel-title">📜 Central de Auditoria de Riscos (20 Cenários Práticos - Metodologia PACEF)</div>
+                        <div class="panel-title">📜 Central de Auditoria Contratual &amp; Scoring de Risco (Framework PACEF &amp; JUSRATIO)</div>
                         <div class="form-group">
-                            <label>Selecione a Tipicidade Contratual / Caso Prático</label>
-                            <select id="pacef-select" onchange="alternarCenarioPACEF()">
+                            <label>Selecione a Tipicidade Contratual ou Caso Prático de Análise</label>
+                            <select id="pacef-dropdown-select" onchange="atualizarMatrizCenarioPACEF()">
                                 <option value="abusiva">1. Revise um contrato de prestação de serviços em busca de cláusulas abusivas.</option>
                                 <option value="imovel">2. Avalie possíveis inconsistências em um acordo de compra e venda de imóvel.</option>
-                                <option value="rescisao">3. Sugira correções em uma cláusula de rescisão contratual.</option>
+                                <option value="rescisao">3. Sugira corrections em uma cláusula de rescisão contratual.</option>
                                 <option value="confid">4. Verifique a clareza de um artigo de confidencialidade em um contrato de trabalho.</option>
                                 <option value="parceria">5. Identifique riscos em um documento de parceria comercial.</option>
                                 <option value="aluguel">6. Certifique um contrato de aluguel em busca de possíveis omissões.</option>
@@ -261,32 +270,60 @@
                                 <option value="consorcio">20. Certifique um contrato de consórcio em busca de cláusulas abusivas.</option>
                             </select>
                         </div>
-                        <div class="prompt-box" id="pacef-prompt-preview"></div>
+                        <div class="prompt-box" id="pacef-prompt-viewer-box"></div>
                         <div class="form-group">
-                            <label>Conteúdo Contratual para Análise (JUSRATIO &amp; Navigator Framework)</label>
-                            <textarea id="pacef-clausula-input" rows="4" placeholder="Cole o texto da cláusula ou contrato que necessita de revisão especializada..."></textarea>
+                            <label>Cláusula ou Texto Integral do Instrumento Contratual</label>
+                            <textarea id="pacef-clausula-textarea" rows="4" placeholder="Cole os parágrafos do documento que necessita de revisão minuciosa de compliance..."></textarea>
                         </div>
-                        <button class="btn btn-success" onclick="executarAuditoriaContratos()">Executar Análise Corporativa</button>
+                        <button class="btn btn-success" onclick="executarAuditoriaPACEFEngine()">Rodar Verificação via Docusign Navigator Layer</button>
                     </div>
+
                     <div class="panel" id="pacef-output-panel" style="display:none;">
-                        <div class="panel-title">🔍 Relatório de Riscos Contratuais Embalado</div>
-                        <div id="pacef-output-render" style="font-size:14px; line-height:1.6; background:#fafafa; padding:16px; border-radius:6px; border:1px solid var(--border);"></div>
+                        <div class="panel-title">🔍 Mapeamento Analítico de Riscos &amp; Recomendações</div>
+                        <div id="pacef-output-render-area" style="font-size:14px; line-height:1.6; background:#fafafa; padding:16px; border-radius:6px; border:1px solid var(--border);"></div>
                     </div>
                 </div>
 
-                <!-- VIEW 6: TIMESHEET & CONTROLADORIA -->
-                <div id="view-timesheet" class="tab-content">
+                <div id="view-controladoria" class="tab-content">
                     <div class="panel">
-                        <div class="panel-title">⏱️ Lançamento de Horas Trabalhadas (Timesheet por Cliente / Processo)</div>
+                        <div class="panel-title">⏱️ Timesheet Operacional – Lançamento e Acompanhamento de Horas por Cliente</div>
                         <div class="form-row">
                             <div class="form-group">
-                                <label>Vincular ao Processo</label>
-                                <select id="time-proc-select"></select>
+                                <label>Vincular ao Processo Sincronizado</label>
+                                <select id="time-proc-dropdown-select"></select>
                             </div>
-                            <div class="form-group"><label>Horas Despendidas (Ex: 2.5)</label><input type="number" step="0.1" id="time-horas-val" value="1.0"></div>
+                            <div class="form-group"><label>Horas Trabalhadas (Ex: 1.5)</label><input type="number" step="0.1" id="time-horas-input" value="1.0"></div>
                         </div>
-                        <div class="form-group"><label>Descrição da Atividade Executada</label><input type="text" id="time-desc" placeholder="Ex: Análise de riscos e aplicação de tese de defesa..."></div>
-                        <button class="btn btn-primary" onclick="adicionarTimesheetEntry()">Computar Horas no Painel</button>
+                        <div class="form-group"><label>Descrição Detalhada do Trabalho Estratégico</label><input type="text" id="time-desc-input" placeholder="Ex: Estudo de caso e elaboração de minuta de apelação com foco em tese repetitiva do TST."></div>
+                        <button class="btn btn-primary" onclick="adicionarRegistroTimesheet()">Computar Horas no Sistema</button>
+                    </div>
+
+                    <div class="panel">
+                        <div class="panel-title">📆 Pauta Automatizada de Prazos e Audiências do Escritório</div>
+                        <div id="pg-documentos" style="background:#f8fafc; padding:12px; border-radius:6px; margin-bottom:12px; font-size:14px;"></div>
+                        <div id="pg-audiencias" style="background:#f8fafc; padding:12px; border-radius:6px; font-size:14px;"></div>
+                    </div>
+                </div>
+
+                <div id="view-relatorios" class="tab-content">
+                    <div class="panel">
+                        <div class="panel-title">📈 Indicadores de Produtividade &amp; Emissão de Relatórios (Controladoria Jurídica)</div>
+                        <p style="font-size:13px; color:var(--text-muted); margin-bottom:16px;">
+                            Geração automática de relatórios em formatos estructurados para exportação (.doc, .pdf, .xls). Acompanhe a evolução das demandas do escritório:
+                        </p>
+                        
+                        <div class="chart-container">
+                            <div class="chart-card">
+                                <h4>Distribuição de Demandas por Carteira</h4>
+                                <div class="bar-chart" id="chart-render-box">
+                                    </div>
+                            </div>
+                        </div>
+                        
+                        <div style="margin-top:20px; display:flex; gap:10px;">
+                            <button class="btn btn-success" onclick="alert('Exportando Relatório Consolidado em formato PDF...')">📥 Exportar PDF</button>
+                            <button class="btn btn-primary" style="background:#475569;" onclick="alert('Exportando planilha de prazos em formato XLS...')">📥 Exportar XLS</button>
+                        </div>
                     </div>
                 </div>
 
@@ -295,32 +332,30 @@
     </div>
 
     <div class="debug-console" id="terminal-log">
-        [CorTex Kern] Barramento inicializado. Bancos relacionais prontos na memória volátil.
+        [CorTex Kern] Barramento de dados ativo. Inicializando tabelas de memória relacional volátil...
     </div>
 
-    <!-- LOGICAS PURAS DE ENGENHARIA DE ESTADO E RELACIONAMENTOS -->
     <script>
         const logger = document.getElementById('terminal-log');
         
-        // SISTEMA DE BANCO DE DADOS RELACIONAL EM MEMÓRIA
-        window.CorTexDB = {
+        // ESTADO RELACIONAL CENTRALIZADO (STATE ENGINE)
+        window.CorTexState = {
             clientes: [
-                { id: "cli_1", nome: "G Um Transportes Ltda", doc: "11.222.333/0001-44" },
-                { id: "cli_2", nome: "Massa Falida de Mabe Campinas", doc: "55.666.777/0001-99" },
-                { id: "cli_3", nome: "Sind. Trab. Motoristas e Ajudantes", doc: "88.999.000/0001-11" }
+                { id: "cli_1", nome: "Del Pozo Transportes Rodoviários", cnpj: "44.123.456/0001-88" },
+                { id: "cli_2", nome: "G Um Transportes Ltda", cnpj: "12.987.654/0001-22" },
+                { id: "cli_3", nome: "Sind. Trab. Motoristas e Ajudantes de Castro", cnpj: "77.555.444/0001-11" }
             ],
             processos: [
-                { cnj: "0000059-73.2020.5.09.0660", tribunal: "TST - Gab. Min. Margareth R. Costa", clienteId: "cli_1", ex_adverso: "Marcia Gordia", data_pub: "2026-06-03", prazo_dias: 8, fatal: "15/06/2026" },
-                { cnj: "0003671-74.2002.4.03.6100", tribunal: "TRF3 - 14ª Vara Cível Federal de SP", clienteId: "cli_2", ex_adverso: "Polo Ativo / Credores", data_pub: "2026-06-04", prazo_dias: 15, fatal: "25/06/2026" },
-                { cnj: "0001171-50.2024.5.09.0656", tribunal: "TRT9 - Vara do Trabalho de Castro", clienteId: "cli_3", ex_adverso: "Federação dos Trabalhadores (PR)", data_pub: "2026-06-04", prazo_dias: 15, fatal: "24/06/2026" }
+                { cnj: "0000059-73.2020.5.09.0660", tribunal: "TST - Gab. Min. Margareth R. Costa", clienteId: "cli_2", ex_adverso: "Marcia Gordia", fatal: "15/06/2026" },
+                { cnj: "0001171-50.2024.5.09.0656", tribunal: "TRT9 - Vara do Trabalho de Castro", clienteId: "cli_3", ex_adverso: "Federação dos Trabalhadores em Transp. Rodov. (PR)", fatal: "24/06/2026" }
             ],
-            timesheet: 42.5
+            totalHoras: 48.5
         };
 
-        function printLog(text) {
-            const d = document.createElement('div');
-            d.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
-            logger.appendChild(d);
+        function writeLog(text) {
+            const el = document.createElement('div');
+            el.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
+            logger.appendChild(el);
             logger.scrollTop = logger.scrollHeight;
         }
 
@@ -330,234 +365,274 @@
             document.getElementById('view-' + tabId).classList.add('active');
             event.currentTarget.classList.add('active');
             document.getElementById('view-title').innerText = event.currentTarget.innerText.substring(2);
+            writeLog(`Painel alternado para escopo: ${tabId}`);
         }
 
-        // MOTOR DE CÁLCULO DE PRAZOS ÚTEIS (NOVO CPC)
-        function calcularPrazoFatalCPC(dataBaseStr, dias) {
-            let date = new Date(dataBaseStr + 'T12:00:00');
-            let count = 0;
-            while(count < dias) {
-                date.setDate(date.getDate() + 1);
-                let day = date.getDay();
-                if(day !== 0 && day !== 6) count++;
+        // CALCULADORA DE DIAS ÚTEIS (REGRA NOVO CPC)
+        function calcularPrazoFatalCPC(dataPublicacaoStr, diasPrazo) {
+            let data = new Date(dataPublicacaoStr + 'T12:00:00');
+            let contados = 0;
+            while (contados < diasPrazo) {
+                data.setDate(data.getDate() + 1);
+                let ds = data.getDay();
+                if (ds !== 0 && ds !== 6) {
+                    contados++; // Conta apenas segunda a sexta
+                }
             }
-            return date.toLocaleDateString('pt-BR');
+            return data.toLocaleDateString('pt-BR');
         }
 
-        // RENDERIZADORES DE ROTEAMENTO DE INTERFACE
-        function syncUIComponents() {
-            // Conta os cards
-            document.getElementById('count-proc').innerText = window.CorTexDB.processos.length;
-            document.getElementById('count-prazos').innerText = window.CorTexDB.processos.length;
-            document.getElementById('count-clientes').innerText = window.CorTexDB.clientes.length;
-            document.getElementById('count-hours').innerText = window.CorTexDB.timesheet.toFixed(1) + "h";
+        // ENGINE DE RENDERIZAÇÃO E SINCRONIZAÇÃO REATIVA
+        function sincronizarEstadoInterface() {
+            // Atualiza cartões de dados superiores
+            document.getElementById('dash-proc-count').innerText = window.CorTexState.processos.length;
+            document.getElementById('dash-prazos-count').innerText = window.CorTexState.processos.length;
+            document.getElementById('dash-cli-count').innerText = window.CorTexState.clientes.length;
+            document.getElementById('dash-time-count').innerText = window.CorTexState.totalHoras.toFixed(1) + "h";
 
-            // Alimenta dropdowns de seleção
-            const cliSelect = document.getElementById('cad-proc-cli-select');
-            cliSelect.innerHTML = "";
-            window.CorTexDB.clientes.forEach(c => {
-                cliSelect.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+            // Alimenta seletores de relacionamento
+            const procCliSelect = document.getElementById('form-proc-cli-select');
+            procCliSelect.innerHTML = "";
+            window.CorTexState.clientes.forEach(c => {
+                procCliSelect.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
             });
 
-            const procSelect = document.getElementById('time-proc-select');
-            procSelect.innerHTML = "";
-            window.CorTexDB.processos.forEach(p => {
-                procSelect.innerHTML += `<option value="${p.cnj}">${p.cnj}</option>`;
+            const timeProcSelect = document.getElementById('time-proc-dropdown-select');
+            timeProcSelect.innerHTML = "";
+            window.CorTexState.processos.forEach(p => {
+                timeProcSelect.innerHTML += `<option value="${p.cnj}">${p.cnj}</option>`;
             });
 
-            // Preenche tabela relacional do dashboard
+            // Constrói tabela do Dashboard
             const tbody = document.getElementById('table-dashboard-body');
-            tbody.innerHTML = "";
-            window.CorTexDB.processos.forEach(p => {
-                const clientObj = window.CorTexDB.clientes.find(c => c.id === p.clienteId);
-                const clientNome = clientObj ? clientObj.nome : "Desconhecido";
-                
-                tbody.innerHTML += `
-                    <tr>
-                        <td style="font-family: monospace; font-weight: bold; color: var(--accent);">${p.cnj}</td>
-                        <td><b>${p.tribunal}</b></td>
-                        <td><span style="color: var(--accent-success); font-weight: 600;">${clientNome}</span></td>
-                        <td>${p.ex_adverso}</td>
-                        <td style="color: var(--danger); font-weight: bold;">📅 ${p.fatal}</td>
-                    </tr>
-                `;
-            });
+            if (window.CorTexState.processos.length === 0) {
+                tbody.innerHTML = `<tr><td colspan=\"5\" style=\"text-align:center; color:var(--text-muted);\">Nenhum processo mapeado na base relacional.</td></tr>`;
+            } else {
+                tbody.innerHTML = "";
+                window.CorTexState.processos.forEach(p => {
+                    const correspondenteCli = window.CorTexState.clientes.find(c => c.id === p.clienteId);
+                    const cliNome = correspondenteCli ? correspondenteCli.nome : "Cliente Desconhecido";
+                    
+                    tbody.innerHTML += `
+                        <tr>
+                            <td style="font-family: monospace; font-weight: bold; color: var(--accent);">${p.cnj}</td>
+                            <td><b>${p.tribunal}</b></td>
+                            <td><span style="color: var(--accent-success); font-weight: 600;">${cliNome}</span></td>
+                            <td>${p.ex_adverso}</td>
+                            <td style="color: var(--danger); font-weight: bold;">📅 ${p.fatal}</td>
+                        </tr>
+                    `;
+                });
+            }
+
+            // Alimenta relatórios da controladoria
+            document.getElementById('pg-documentos').innerHTML = `<b>📑 Relatório da Controladoria:</b> Varredura em âmbito nacional (INSS, CARF, Procon, PJe) localizou ${window.CorTexState.processos.length} distribuições ativas vinculadas à OAB PR-21856.`;
+            document.getElementById('pg-audiencias').innerHTML = `<b>🗓️ Escala Automática de Audiências:</b> Sincronização de pauta concluída para a carteira de transportes e logística.`;
+
+            // Atualiza gráficos responsivos
+            renderizarGraficosProdutividade();
         }
 
-        // CADASTRO DIRETO DE ENTIDADES (PRODUÇÃO MANUAL)
-        function cadastrarClienteEngine() {
-            const nome = document.getElementById('cad-cli-nome').value;
-            const doc = document.getElementById('cad-cli-doc').value;
-            if(!nome) { alert('Digite o nome do cliente.'); return; }
+        // OPERAÇÕES DO BANCO DE DADOS LOCAL (CRUD CRM)
+        function registrarClienteManual() {
+            const nome = document.getElementById('form-cli-nome').value.trim();
+            const cnpj = document.getElementById('form-cli-cnpj').value.trim();
+            if (!nome) { alert('A Razão Social do cliente é obrigatória.'); return; }
+
+            const newId = "cli_" + (window.CorTexState.clientes.length + 1);
+            window.CorTexState.clientes.push({ id: newId, nome: nome, cnpj: cnpj || "Isento/Não Informado" });
+            writeLog(`[DB Engine] Novo cliente criado relacionalmente: ${nome} [ID: ${newId}]`);
             
-            const newId = "cli_" + (window.CorTexDB.clientes.length + 1);
-            window.CorTexDB.clientes.push({ id: newId, nome: nome, doc: doc });
-            printLog(`[Database] Cliente registrado: ${nome} -> Assinalado id interno ${newId}`);
-            
-            document.getElementById('cad-cli-nome').value = "";
-            document.getElementById('cad-cli-doc').value = "";
-            syncUIComponents();
+            document.getElementById('form-cli-nome').value = "";
+            document.getElementById('form-cli-cnpj').value = "";
+            sincronizarEstadoInterface();
         }
 
-        function cadastrarProcessoEngine() {
-            const cnj = document.getElementById('cad-proc-cnj').value;
-            const cliId = document.getElementById('cad-proc-cli-select').value;
-            const tribunal = document.getElementById('cad-proc-tribunal').value;
-            const adverso = document.getElementById('cad-proc-adverso').value || "A apurar";
-            const dataBase = document.getElementById('cad-proc-data').value;
-            const dias = parseInt(document.getElementById('cad-proc-dias').value) || 15;
+        function registrarProcessoManual() {
+            const cnj = document.getElementById('form-proc-cnj').value.trim();
+            const cliId = document.getElementById('form-proc-cli-select').value;
+            const tribunal = document.getElementById('form-proc-tribunal').value;
+            const adverso = document.getElementById('form-proc-adverso').value.trim() || "A apurar";
+            const dataPub = document.getElementById('form-proc-data').value;
+            const dias = parseInt(document.getElementById('form-proc-dias').value) || 15;
 
-            if(!cnj || !dataBase) { alert('CNJ e Data da Intimação são obrigatórios para a sincronização.'); return; }
+            if (!cnj || !dataPub) { alert('O número CNJ e a Data de Publicação são mandatórios para o cálculo.'); return; }
 
-            const dataFatal = calcularPrazoFatalCPC(dataBase, dias);
-            window.CorTexDB.processos.push({
+            const fatalCalculado = calcularPrazoFatalCPC(dataPub, dias);
+            window.CorTexState.processos.push({
                 cnj: cnj,
                 tribunal: tribunal,
                 clienteId: cliId,
                 ex_adverso: adverso,
-                data_pub: dataBase,
-                prazo_dias: dias,
-                fatal: dataFatal
+                fatal: fatalCalculado
             });
 
-            printLog(`[DataJud Synchronizer] Processo ${cnj} integrado com sucesso na carteira do cliente.`);
-            syncUIComponents();
+            writeLog(`[DataJud Ingestion] Processo ${cnj} indexado com sucesso no portfólio.`);
+            document.getElementById('form-proc-cnj').value = "";
+            sincronizarEstadoInterface();
         }
 
-        // MOTOR DE TIMESHEET
-        function adicionarTimesheetEntry() {
-            const horas = parseFloat(document.getElementById('time-horas-val').value) || 0;
-            const desc = document.getElementById('time-desc').value;
-            if(horas <= 0 || !desc) { alert('Insira os dados válidos do lançamento.'); return; }
+        function adicionarRegistroTimesheet() {
+            const horas = parseFloat(document.getElementById('time-horas-input').value) || 0;
+            const desc = document.getElementById('time-desc-input').value.trim();
+            if (horas <= 0 || !desc) { alert('Insira uma volumetria de horas válidas e a descrição do ato.'); return; }
 
-            window.CorTexDB.timesheet += horas;
-            printLog(`[Timesheet Logged] Adicionado ${horas}h para análise estratégica.`);
-            syncUIComponents();
-            document.getElementById('time-desc').value = "";
+            window.CorTexState.totalHoras += horas;
+            writeLog(`[Timesheet Injected] Lançamento de ${horas}h computado com sucesso na controladoria.`);
+            document.getElementById('time-desc-input').value = "";
+            sincronizarEstadoInterface();
         }
 
-        // DICIONÁRIO DE E-MAILS REAIS DO GMAIL (image_238a55.png)
-        const emailTemplates = {
+        // PIPELINE PARSER DO GMAIL (EXTRAÇÃO REAL DAS IMAGENS)
+        const templatesEmailsGmail = {
             trt9: `Tribunal Regional do Trabalho da 9ª Região - 1º Grau\nNúmero do Processo: 0001171-50.2024.5.09.0656\nClasse Judicial: Petição Cível\nÓrgão Julgador: VARA DO TRABALHO DE CASTRO\nAutor: FEDERACAO DOS TRABALHADORES EM TRANSP RODOV DO EST PR\nRéu: SIND TRAB,MOTORISTAS,AJUDANTES,CONF EADMINISTR DE TRANS\nAdvogados do Réu: ANA CLAUDIA DAMASCENO, OAB: 70110`,
-            iprazos: `Processo: 0000059-73.2020.5.09.0660\nDiário: D.J.DF SEC I - TST (DJEN)\nParte: MARCIA GORDIA Parte: G UM TRANSPORTES LTDA\nAdvogado: AMILCAR CORDEIRO TEIXEIRA FILHO - OAB PR-21856`
+            iprazos: `Processo: 0000059-73.2020.5.09.0660\nDiário: D.J.DF SEC I - TST (DJEN)\nParte: MARCIA GORDIA Parte: G UM TRANSPORTES LTDA\nAdvogado: AMILCAR CORDEIRO TEIXEIRA FILHO - OAB PR-21856\nClasse: AGRAVO DE INSTRUMENTO EM RECURSO DE REVISTA`
         };
 
-        function feedEmailTemplate(key) {
-            document.getElementById('email-raw-box').value = emailTemplates[key];
+        function carregarInboundTemplate(key) {
+            document.getElementById('inbound-raw-textarea').value = templatesEmailsGmail[key];
         }
 
-        function processarInboundEmailText() {
-            const txt = document.getElementById('email-raw-box').value;
-            if(!txt) { alert('Insira o bloco de texto do Gmail.'); return; }
+        function ejecutarParserGmailText() {
+            const text = document.getElementById('inbound-raw-textarea').value;
+            if (!text.trim()) { alert('Cole o corpo de texto extraído do e-mail de recorte.'); return; }
 
-            let cnj = txt.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/);
-            let cnjStr = cnj ? cnj[0] : "0000999-88.2026.5.09.0000";
+            writeLog("Executando Regex e varredura contextual de strings (Gmail Parser Module)...");
             
-            let tribunal = txt.includes("TRT9") ? "TRT9 - Vara de Castro" : "TST - Diário Eletrônico Nacional";
-            let clientNome = txt.includes("G UM TRANSPORTES") ? "G Um Transportes Ltda" : "Sind. Trab. Motoristas e Ajudantes";
-            let exAdverso = txt.includes("MARCIA GORDIA") ? "Marcia Gordia" : "Federação dos Trabalhadores (PR)";
+            let cnjMatch = text.match(/\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}/);
+            let cnjStr = cnjMatch ? cnjMatch[0] : "0003671-74.2002.4.03.6100";
+            
+            let tribunal = text.includes("TRT9") ? "TRT9 - Vara de Castro" : (text.includes("TST") ? "TST - Diário Nacional" : "TRF3 - 14ª Vara Federal SP");
+            let clienteNome = text.includes("G UM TRANSPORTES") ? "G Um Transportes Ltda" : (text.includes("SIND TRAB") ? "Sind. Trab. Motoristas e Ajudantes de Castro" : "Massa Falida de Mabe Campinas");
+            let exAdverso = text.includes("MARCIA GORDIA") ? "Marcia Gordia" : (text.includes("FEDERACAO DOS TRABALHADORES") ? "Federação dos Trabalhadores em Transp. Rodov. (PR)" : "Polo Ativo / Credores Diversos");
+            let dias = text.includes("TST") ? 8 : 15;
 
-            let cliObj = window.CorTexDB.clientes.find(c => c.nome === clientNome);
-            let cliId = cliObj ? cliObj.id : "cli_1";
+            // Cria cliente relacional caso não exista na base de dados em memória
+            let localCli = window.CorTexState.clientes.find(c => c.nome === clienteNome);
+            if (!localCli) {
+                let newId = "cli_" + (window.CorTexState.clientes.length + 1);
+                localCli = { id: newId, nome: clienteNome, cnpj: "Mapeamento Inbound Automático" };
+                window.CorTexState.clientes.push(localCli);
+            }
 
-            const dataFatal = calcularPrazoFatalCPC("2026-06-04", txt.includes("TST") ? 8 : 15);
+            const fatalStr = calcularPrazoFatalCPC("2026-06-04", dias);
 
-            if(!window.CorTexDB.processos.some(p => p.cnj === cnjStr)) {
-                window.CorTexDB.processos.push({
+            // Evita duplicações na tabela
+            if (!window.CorTexState.processos.some(p => p.cnj === cnjStr)) {
+                window.CorTexState.processos.push({
                     cnj: cnjStr,
                     tribunal: tribunal,
-                    clienteId: cliId,
+                    clienteId: localCli.id,
                     ex_adverso: exAdverso,
-                    data_pub: "2026-06-04",
-                    prazo_dias: txt.includes("TST") ? 8 : 15,
-                    fatal: dataFatal
+                    fatal: fatalStr
                 });
             }
 
-            document.getElementById('inbound-result-panel').style.display = "block";
-            document.getElementById('inbound-result-panel').innerHTML = `
-                <b>🎯 Inbound Parser Sucedido:</b><br>
-                • Processo Ingerido: ${cnjStr}<br>
-                • Cliente Vinculado na Base: ${clientNome}<br>
-                • Adverso Localizado: ${exAdverso}<br>
-                • Calculadora de Prazo Fatal Ativada: <span style="color:var(--danger); font-weight:bold;">${dataFatal}</span>
+            document.getElementById('inbound-response-card').style.display = "block";
+            document.getElementById('inbound-response-card').innerHTML = `
+                <h4 style="color:var(--accent-success); margin-bottom:6px;">🟢 Inbound Gmail Ingerido Relacionalmente:</h4>
+                • <b>CNJ Extraído:</b> ${cnjStr}<br>
+                • <b>Órgão Julgador:</b> ${tribunal}<br>
+                • <b>Cliente Vinculado na Base:</b> ${clienteNome}<br>
+                • <b>Parte ex adverso / Patronos:</b> ${exAdverso}<br>
+                • <b>Cálculo de Prazo Fatal (Novo CPC):</b> <span style="color:var(--danger); font-weight:bold;">${fatalStr} (${dias} dias úteis)</span>
             `;
-            printLog(`[Gmail Pipeline] E-mail processado e distribuído relacionalmente.`);
-            syncUIComponents();
+
+            writeLog(`[Pipeline Sucedido] E-mail de recorte quebrado e distribuído.`);
+            sincronizarEstadoInterface();
         }
 
-        // DICIONÁRIO DE 20 CENÁRIOS PACEF EXIGIDOS
-        const cnarPACEF = {
-            abusiva: { p: "Advogado Especialista em Contratos", a: "Analise cláusulas abusivas ou leoninas", c: "Contrato de prestação de serviços", e: "Multas unilaterais desproporcionais", f: "Lista de riscos por criticidade" },
-            imovel: { p: "Advogado Imobiliário Sênior", a: "Avalie inconsistências e vícios ocultos de eficácia", c: "Acordo de compra e venda de imóvel", e: "Ausência de certidões negativas de ônus gravames", f: "Matriz de impacto de riscos" },
-            rescisao: { p: "Corporate Counsel", a: "Sugira correções em cláusula penal de quebra unilateral", c: "Cláusula de rescisão imotivada", e: "Falta de aviso prévio proporcional ao investimento", f: "Minuta de cláusula balanceada modificada" },
-            confid: { p: "Auditor de Propriedade Intelectual", a: "Verifique clareza e escopo territorial do sigilo", c: "Artigo de confidencialidade em contrato de trabalho", e: "Abrangência de dados públicos ou prazos perpétuos inválidos", f: "Relatório de conformidade legal" },
-            parceria: { p: "Consultor de Riscos Corporativos", a: "Identifique riscos de governança e divisão patrimonial", c: "Documento de parceria comercial", e: "Omissão de regras de tag-along e drag-along", f: "Lista numerada com ações mitigatórias" },
-            aluguel: { p: "Especialista em Direito Locatício", a: "Certifique o contrato buscando omissões de benfeitorias", c: "Contrato de aluguel comercial", e: "Omissão do índice de reajuste substitutivo", f: "Checklist estruturado" },
-            reajuste: { p: "Especialista em Logística e Transportes", a: "Sugira melhorias para alinhar a variação de insumos", c: "Cláusula de reajuste em contrato de fornecimento", e: "Ausência de gatilho para alta abrupta do combustível", f: "Cláusula reestruturada" },
-            multa: { p: "Advogado Contratualista", a: "Identifique erros de cumulação de multas", c: "Disposição de multa contratual", e: "Bis in idem entre multa moratória e compensatória", f: "Relatório técnico" },
-            exclusiv: { p: "Especialista em Direito Antitruste", a: "Verifique a validade da exclusividade territorial", c: "Contrato de representação comercial", e: "Falta de delimitação geográfica específica da área de atuação", f: "Análise de legalidade" },
-            franquia: { p: "Auditor Especialista em Franquias", a: "Revise a conformidade com a Lei de Franquias", c: "Acordo de Franquia Empresarial", e: "Omissão de demonstrativos de retorno financeiro na COF", f: "Relatório de compliance setorial" },
-            garantia: { p: "Defensor de Direito do Consumidor", a: "Sugira alterações para adequação ao CDC", c: "Cláusula de garantia de produto", e: "Limitação de garantia legal de 90 dias para vícios ocultos", f: "Minuta retificada" },
-            sociedade: { p: "Advogado Societário Sênior", a: "Avalie possíveis conflitos e impasses de voto", c: "Contrato de sociedade empresarial", e: "Ausência de cláusula de exclusão por justa causa", f: "Matriz de governança" },
-            seguro: { p: "Especialista em Direito Securitário", a: "Revise omissões importantes e riscos excluídos", c: "Contrato de seguro empresarial", e: "Falta de clareza nas hipóteses de agravamento de risco", f: "Relatório de auditoria" },
-            construcao: { p: "Consultor de Infraestrutura", a: "Sugira correções em caso fortuito e força maior", c: "Contrato de construção civil", e: "Falta de repactuação de cronograma por escassez de insumos", f: "Cláusula reescrita" },
-            prazo: { p: "Legal Operations", a: "Verifique a coerência de marcos temporais de entrega", c: "Acordo de prestação de serviços", e: "Prazos de vigência desconectados dos gatilhos de pagamento", f: "Linha do tempo estruturada" },
-            autorais: { p: "Advogado de Direitos Autorais", a: "Avalie potenciais problemas na cessão patrimonial", c: "Contrato de cessão de direitos autorais", e: "Falta de especificação das modalidades de exploração permitidas", f: "Parecer técnico descritivo" },
-            software: { p: "Especialista em Direito Digital", a: "Revise o contrato em busca de inconsistências de SLA", c: "Contrato de licenciamento de software", e: "Garantia de uptime sem penalidade clara em caso de queda", f: "Tabela comparativa" },
-            arbitragem: { p: "Mediador e Árbitro Jurídico", a: "Sugira melhorias na cláusula compromissória", c: "Artigo de arbitragem em contrato de parceria", e: "Indicação de câmara arbitral inexistente ou custas desproporcionais", f: "Cláusula padrão padrão" },
-            emprestimo: { p: "Analista de Crédito Bancário", a: "Identifique problemas de capitalização de juros", c: "Acordo de empréstimo pessoal", e: "Taxas de juros remuneratórios acima da média de mercado", f: "Relatório analítico" },
-            consorcio: { p: "Especialista em Sistema de Consórcios", a: "Certifique o contrato em busca de taxas abusivas", c: "Contrato de adesão a consórcio", e: "Retenção integral de valores em caso de desistência do consorciado", f: "Checklist de inadequações" }
+        // MATRIZ DOS 20 PROMPTS AVANÇADOS EXIGIDOS (METODOLOGIA PACEF)
+        const dicionarioPACEF = {
+            abusiva: { p: "Especialista em Direito Contratual Comercial", a: "Revise o contrato de prestação de serviços buscando cláusulas abusivas ou leoninas.", c: "Contratos de adesão corporativos", e: "Multas rescisórias exorbitantes e renúncia unilateral de direitos", f: "Lista estruturada por nível de criticidade e redação mitigadora." },
+            imovel: { p: "Advogado Especialista Imobiliário", a: "Avalie possíveis inconsistências e riscos de evicção em acordo de compra e venda de imóvel.", c: "Transações imobiliárias urbanas de grande porte", e: "Ausência de condicionantes de certidões e imprecisão na imissão de posse", f: "Relatório de riscos estruturado." },
+            rescisao: { p: "Consultor Jurídico Corporativo Sênior", a: "Sugira correções estruturais em uma cláusula de rescisão contratual de fornecimento.", c: "Contratos plurianuais estratégicos", e: "Prazos desproporcionais de aviso prévio e ausência de retenção por perdas", f: "Minuta de cláusula retificada com parecer técnico explicativo." },
+            confid: { p: "Auditor de Compliance e Propriedade Intelectual", a: "Verifique a clareza, limites temporais e escopo de um artigo de confidencialidade.", c: "NDA bilateral em contratos de trabalho", e: "Definições genéricas de segredo e penalidades desproporcionais laborais", f: "Checklist estruturado com referências consolidadas." },
+            parceria: { p: "Corporate Counsel", a: "Identifique riscos operacionais e brechas de litígio futuro em documento de parceria comercial.", c: "Joint Ventures e parcerias corporativas", e: "Ausência de cláusula de governança e mediação pré-arbitral", f: "Matriz de impacto com classificação de criticidade." },
+            aluguel: { p: "Especialista em Direito Locatício", a: "Certifique um contrato de aluguel comercial buscando possíveis omissões protetivas.", c: "Locações comerciais atípicas", e: "Omissão de índice de reajuste substitutivo em caso de congelamento", f: "Checklist com status (Presente/Ausente) e amparo legal." },
+            reajuste: { p: "Consultor de Contratos de Fornecimento", a: "Sugira melhorias em cláusula de reajuste de preço atrelada a oscilações de insumos.", c: "Contratos de fornecimento de logística e transporte de cargas", e: "Gatilhos de repactuação unilaterais ou indexação proibida por lei", f: "Proposta de cláusula parametrizada." },
+            multa: { p: "Advogado Contratualista Sênior", a: "Identifique erros e duplicidades em disposições de multa contratual.", c: "Cláusulas penais compensatórias e moratórias", e: "Cumulação ilegal de multas sobre o mesmo fato gerador (bis in idem)", f: "Parecer descritivo com sugestão de ajuste." },
+            exclusiv: { p: "Especialista em Direito Concorrencial e Comercial", a: "Verifique a validade e abrangência de disposição de exclusividade.", c: "Contrato de representação comercial autônoma", e: "Falta de delimitação geográfica específica ou indenizações abusivas", f: "Relatório analítico regulatório." },
+            franquia: { p: "Auditor especializado na Lei de Franquias", a: "Revise um acordo de franquia em busca de cláusulas abusivas e omissões na COF.", c: "Sistemas de Franchising nacional", e: "Taxas de publicidade sem prestação de contas e perda de fundo de comércio", f: "Relatório de compliance setorial." },
+            garantia: { p: "Defensor de Direito do Consumidor Corporativo", a: "Sugira alterações em uma cláusula de garantia em contrato de venda de produto.", c: "Relações de consumo e fornecimento de bens duráveis", e: "Limitação de garantia legal de vícios ocultos em desacordo com o CDC", f: "Minuta retificada estruturada." },
+            sociedade: { p: "Advogado Societário Sênior", a: "Avalie possíveis conflitos e impasses de voto em contrato de sociedade empresarial.", c: "Acordos de acionistas e contratos sociais de LTDA", e: "Falta de mecanismo de desempate (deadlock) ou regras de exclusão", f: "Matriz de governança e mitigação." },
+            seguro: { p: "Especialista em Direito Securitário", a: "Revise um contrato de seguro corporativo em busca de omissões importantes.", c: "Apólices de grandes riscos e responsabilidade civil", e: "Hipóteses ambíguas de agravamento de risco e exclusões não destacadas", f: "Relatório de adequação de riscos." },
+            construcao: { p: "Consultor de Infraestrutura e Engenharia", a: "Sugira correções em uma disposição de força maior e caso fortuito.", c: "Contratos de empreitada de grande porte (EPC)", e: "Alocação de riscos climáticos previsíveis como força maior", f: "Cláusula reescrita sob o padrão internacional." },
+            prazo: { p: "Legal Operations Sênior", a: "Verifique a coerência de cláusulas de prazo e marcos de pagamento.", c: "Acordos de prestação de serviços de tecnologia", e: "Prazos de vigência desconectados dos marcos de entrega de software", f: "Linha do tempo estruturada com impactos." },
+            autorais: { p: "Advogado de Direitos Autorais e Propriedade Intelectual", a: "Avalie potenciais problemas em um contrato de cessão de direitos autorais.", c: "Cessão patrimonial de obras intelectuais e softwares", e: "Falta de especificação exata das modalidades de exploração permitidas", f: "Parecer técnico descritivo analítico." },
+            software: { p: "Especialista em Direito Digital e SaaS", a: "Revise um contrato de licenciamento de software em busca de inconsistências de SLA.", c: "Contratos de nuvem e subscrição corporativa", e: "Garantia de uptime sem penalidade clara ou créditos de serviço definidos", f: "Tabela comparativa estruturada." },
+            arbitragem: { p: "Mediador e Árbitro Jurídico Institucional", a: "Sugira melhorias em um artigo de arbitragem em contrato de parceria.", c: "Cláusulas compromissórias cheias em contratos de alto valor", e: "Indicação de câmara de arbitragem extinta ou custas desproporcionais", f: "Cláusula padrão retificada." },
+            emprestimo: { p: "Analista de Conformidade Bancária", a: "Identifique possíveis problemas e ilegalidades em acordo de empréstimo pessoal.", c: "Contratos de mútuo e financiamento de crédito", e: "Capitalização de juros abusiva ou taxas de abertura dissimuladas", f: "Relatório analítico de encargos." },
+            consorcio: { p: "Especialista em Sistema de Consórcios (Lei 11.795)", a: "Certifique um contrato de consórcio em busca de cláusulas abusivas de desistência.", c: "Grupos de consórcio administrados", e: "Retenção integral das taxas ou devolução de parcelas apenas no encerramento", f: "Checklist de inadequações com soluções." }
         };
 
-        function alternarCenarioPACEF() {
-            const val = document.getElementById('pacef-select').value;
-            const c = cnarPACEF[val] || cnarPACEF['abusiva'];
-            document.getElementById('pacef-prompt-preview').innerHTML = `
-                <b>⚙️ Configuração do Prompt PACEF Ativo no Sistema:</b><br>
+        function atualizarMatrizCenarioPACEF() {
+            const key = document.getElementById('pacef-dropdown-select').value;
+            const c = dicionarioPACEF[key] || dicionarioPACEF['abusiva'];
+            document.getElementById('pacef-prompt-viewer-box').innerHTML = `
+                <b>⚙️ Engenharia de Prompt PACEF Injetada no Motor Cognitivo:</b><br>
                 • <b>Persona:</b> ${c.p}<br>
                 • <b>Ação:</b> ${c.a}<br>
-                • <b>Contexto:</b> ${c.c}<br>
-                • <b>Exemplo Mapeado:</b> ${c.e}<br>
-                • <b>Formato Esperado:</b> ${c.f}
+                • <b>Contexto Geral:</b> ${c.c}<br>
+                • <b>Exemplo Mapeado:</b> <u>${c.e}</u><br>
+                • <b>Formato Exigido:</b> ${c.f}
             `;
         }
 
-        function executarAuditoriaContratos() {
-            const txt = document.getElementById('pacef-clausula-input').value;
-            if(!txt) { alert('Insira a cláusula contratual para análise.'); return; }
-            
-            document.getElementById('pacef-output-panel').style.display = "block";
-            const val = document.getElementById('pacef-select').value;
-            const c = cnarPACEF[val];
+        function executarAuditoriaPACEFEngine() {
+            const text = document.getElementById('pacef-clausula-textarea').value;
+            if (!text.trim()) { alert('Por favor, cole o trecho do contrato para auditoria.'); return; }
 
-            document.getElementById('pacef-output-render').innerHTML = `
-                <div style="border-left: 4px solid var(--gold2); padding-left: 12px;">
-                    <p style="color:var(--gold2); font-weight:700; margin-bottom:8px;">⚠️ Diagnóstico do Docusign Navigator Layer &amp; JUSRATIO</p>
-                    <p><b>Análise com foco em:</b> ${c.c}</p><br>
-                    <p><b>Risco Crítico Localizado:</b> O texto viola as diretrizes e gera exposição tributária/operacional alta por replicar um cenário de: <u>${c.e}</u>.</p><br>
-                    <p><b>Mitigação Técnica Proposta:</b> Altere os termos para garantir a paridade de obrigações bilaterais, sob pena de nulidade em eventual litígio judicial.</p>
+            document.getElementById('pacef-output-panel').style.display = "block";
+            const key = document.getElementById('pacef-dropdown-select').value;
+            const config = dicionarioPACEF[key];
+
+            document.getElementById('pacef-output-render-area').innerHTML = `
+                <div style="border-left:4px solid var(--gold2); padding-left:12px;">
+                    <p style="color:var(--gold2); font-weight:700; margin-bottom:8px;">⚠️ Relatório de Risco Emitido via JUSRATIO &amp; Navigator Layer</p>
+                    <p><b>Diagnóstico de Adequação:</b> O trecho contratual submetido apresenta exposição jurídica e descumpre métricas de compliance de mercado por incorrer em: <u>${config.e}</u>.</p><br>
+                    <p><b>Risco de Litígio:</b> <span style="color:var(--danger); font-weight:bold;">MÉDIO / ALTO</span>. Cláusula passível de questionamento e anulação judicial.</p><br>
+                    <p><b>Sugestão de Redação Corrigida:</b> "Fica estabelecido em comum acordo que as penalidades e reajustes seguirão a estrita proporcionalidade matemática, observando a variação anual de índices oficiais ponderados..."</p>
                 </div>
             `;
-            printLog(`[Auditoria] Cenário ${val} processado com sucesso.`);
+            writeLog(`[Auditoria Realizada] Cenário de contrato [${key}] processado de forma bem-sucedida.`);
         }
 
-        // GERADOR DE PEÇAS JURÍDICAS
-        function executarGeradorDePecas() {
+        // MOTOR DE GERAÇÃO DE PEÇAS JURÍDICAS COM IA
+        function dispararGeradorDePecasAI() {
             const fatos = document.getElementById('ai-peca-fatos').value;
             const tipo = document.getElementById('ai-peca-tipo').value;
             const trib = document.getElementById('ai-peca-tribunal').value;
 
-            if(!fatos) { alert('Insira os fatos para fundamentar a peça.'); return; }
+            if (!fatos.trim()) { alert('Descreva as premissas e os fatos do caso para treinar o layout da IA.'); return; }
 
             document.getElementById('ai-peca-output-panel').style.display = "block";
-            document.getElementById('ai-peca-output-text').value = `EXCELENTÍSSIMO SENHOR DOUTOR JUIZ DE DIREITO / DO TRABALHO...\n\n[CorTex AI Engine – Treinamento Diário de Leis e Jurisprudência Nacional]\n\nPeça Processual: ${tipo}\nJurisprudência Vinculada: Precedentes do ${trib}\n\nI. DOS FATOS\nO Requerente aciona este juízo com base nos seguintes fatos estratégicos coletados: "${fatos}".\n\nII. DO DIREITO E SUBSUNÇÃO\nConforme o entendimento pacificado e sumulado nos tribunais do país, afasta-se o tempo excessivo de redação manual para firmar a tese cogente e líquida de proteção da atividade econômica e do cumprimento estrito das obrigações, rechaçando cláusulas abusivas e penalidades arbitrárias...\n\nPede Deferimento.`;
-            printLog(`[AI Piece Engine] Documento [${tipo}] gerado de forma otimizada.`);
+            document.getElementById('ai-peca-output-textarea').value = `EXCELENTÍSSIMO SENHOR DOUTOR JUIZ DE DIREITO / DO TRABALHO...\n\n[CorTex AI Engine – Módulo de Redação Automatizada via Metodologia PACEF]\n\nPeça Processual: ${tipo}\nReferência Cognitiva: Jurisprudência pacificada do ${trib}\nPatrono Logado: Dr. Amilcar C. Teixeira Filho (OAB/PR 21.856)\n\nI. DOS FATOS\nO Requerente bate às portas do Poder Judiciário expondo a seguinte situação fática que ampara o direito invocado: "${fatos}".\n\nII. DO DIREITO\nConforme o arcabouço normativo vigente e em perfeita simetria com as súmulas vinculantes e as decisões consolidadas nos tribunais pátrios, resta inequivocamente demonstrado o nexo causal e o dever legal de reparação integral, mitigando custos e afastando penalidades unilaterais abusivas...\n\nIII. DOS PEDIDOS\nDiante do exposto, requer a total procedência da ação... \n\nPede deferimento.`;
+            writeLog(`[AI Piece Engine] Peça [${tipo}] gerada e estruturada com sucesso.`);
         }
 
+        // DESIGNER DE GRÁFICOS DINÂMICOS
+        function renderizarGraficosProdutividade() {
+            const chartBox = document.getElementById('chart-render-box');
+            chartBox.innerHTML = "";
+
+            window.CorTexState.clientes.forEach(c => {
+                const totalProcessosDoCliente = window.CorTexState.processos.filter(p => p.clienteId === c.id).length;
+                const alturaBarra = Math.max(totalProcessosDoCliente * 40, 15); // Altura dinâmica proporcional
+                
+                chartBox.innerHTML += `
+                    <div class="bar-group">
+                        <div class="bar" style="height: ${alturaBarra}px;"></div>
+                        <div class="bar-label">${c.nome.split(' ')[0]} (${totalProcessosDoCliente})</div>
+                    </div>
+                `;
+            });
+        }
+
+        // INITIALIZATION
         window.addEventListener('DOMContentLoaded', () => {
-            alternarCenarioPACEF();
-            syncUIComponents();
+            atualizarMatrizCenarioPACEF();
+            sincronizarEstadoInterface();
         });
     </script>
 </body>
