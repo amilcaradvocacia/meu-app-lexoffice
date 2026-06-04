@@ -14,7 +14,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: var(--background); color: var(--text); display: flex; height: 100vh; overflow: hidden; flex-direction: column; }
         .app-container { display: flex; width: 100%; flex: 1; overflow: hidden; }
-        .sidebar { width: 310px; background-color: var(--primary); color: white; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--primary-light); flex-shrink: 0; }
+        .sidebar { width: 310px; background-color: var(--primary); color: white; display: flex; flex-direction: column; justify-content: space-between; border-right: 1px solid var(--primary-light); }
         .logo-area { padding: 24px; border-bottom: 1px solid var(--primary-light); }
         .logo-title { font-size: 26px; font-weight: 800; color: #fff; }
         .logo-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; font-weight: bold; }
@@ -23,7 +23,7 @@
         .menu-item { padding: 12px 24px; color: #cbd5e1; text-decoration: none; display: flex; align-items: center; gap: 12px; font-size: 14px; cursor: pointer; border-left: 4px solid transparent; }
         .menu-item:hover, .menu-item.active { background-color: var(--primary-light); color: white; border-left-color: var(--accent); }
         .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
-        .header { height: 70px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; flex-shrink: 0; }
+        .header { height: 70px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; }
         .content-body { padding: 32px; flex: 1; overflow-y: auto; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
@@ -34,44 +34,31 @@
         .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px; }
         .panel-title { font-size: 16px; font-weight: 700; color: var(--text-dark); margin-bottom: 16px; border-bottom: 1px solid var(--background); padding-bottom: 8px; }
         
+        /* SEARCH BAR FILTERS STYLE */
         .search-container { margin-bottom: 20px; display: flex; width: 100%; gap: 12px; }
-        .search-input { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; background: var(--surface); }
+        .search-input { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; background: var(--surface); box-shadow: inset 0 1px 2px rgba(0,0,0,0.05); }
+        .search-input:focus { outline: 2px solid var(--accent); border-color: transparent; }
         
         .data-table { width: 100%; border-collapse: collapse; }
         .data-table th { background: var(--background); text-align: left; padding: 12px; font-size: 12px; border: 1px solid var(--border); font-weight: 700; color: var(--text-dark); }
         .data-table td { padding: 12px; border: 1px solid var(--border); font-size: 13px; }
         .folder-badge { padding: 3px 8px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #16a34a; border-radius: 4px; font-family: monospace; font-weight: bold; font-size: 12px; }
-        
-        /* ACTION BUTTON STYLE */
-        .btn-action { padding: 6px 12px; background: var(--accent); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
-        .btn-action:hover { background: #1d4ed8; }
-        
-        .form-group { margin-bottom: 16px; }
-        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
-        label { font-size: 12px; font-weight: 600; color: var(--text-dark); display: block; margin-bottom: 6px; }
-        input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; background: var(--surface); border: 1px solid var(--border); font-size: 14px; color: var(--text-dark); }
-        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 10px 20px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; gap: 8px; }
-        .btn-primary { background: var(--accent); color: white; }
-        .btn-success { background: var(--accent-success); color: white; }
-        .prompt-box { background: #f8fafc; border: 1px dashed var(--border); padding: 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; line-height: 1.5; }
-        .debug-console { height: 75px; background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 8px 16px; overflow-y: auto; }
+        .email-pill { padding: 4px 10px; background: #f3f4f6; border: 1px solid var(--border); border-radius: 15px; font-size: 11px; font-weight: bold; }
+        .debug-console { height: 75px; background: #000; color: #0f0; font-family: monospace; font-size: 11px; padding: 8px 16px; }
     </style>
 </head>
 <body>
 
     <div class="app-container">
-        <!-- Sidebar -->
         <aside class="sidebar">
             <div>
                 <div class="logo-area">
                     <div class="logo-title">🧠 CorTex</div>
                     <div class="logo-sub">Cognição &amp; Ingestão Autônoma</div>
-                    <span class="vbadge">Relational Core v2026.9</span>
+                    <span class="vbadge">Relational Client Core v2026.8</span>
                 </div>
                 <nav class="menu">
-                    <a class="menu-item active" onclick="switchTab('dashboard')">📊 Painel Geral (Live)</a>
-                    <a class="menu-item" onclick="switchTab('redacao')">🤖 Redação de Peças (IA)</a>
-                    <a class="menu-item" onclick="switchTab('revisao')">📜 Auditoria Contratual PACEF</a>
+                    <a class="menu-item active" onclick="switchTab('dashboard')">📊 Painel Operacional (GCP)</a>
                     <a class="menu-item" onclick="switchTab('controladoria')">⏱️ Controladoria Jurídica</a>
                 </nav>
             </div>
@@ -80,16 +67,13 @@
             </div>
         </aside>
 
-        <!-- Main Content -->
         <main class="main-content">
             <header class="header">
-                <h2 style="font-size: 22px; font-weight: 700; color: var(--text-dark);" id="view-title">Painel Geral (Live)</h2>
-                <span style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">Sincronizado Supabase</span>
+                <h2 style="font-size: 22px; font-weight: 700; color: var(--text-dark);" id="view-title">Painel Operacional (GCP)</h2>
+                <span style="background: #dcfce7; color: #15803d; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">Automação Gmail Ativa</span>
             </header>
 
             <div class="content-body">
-                
-                <!-- VIEW 1: DASHBOARD LIVE -->
                 <div id="view-dashboard" class="tab-content active">
                     <div class="grid-stats">
                         <div class="card-stat"><div class="card-title">Processos Capturados</div><div class="card-value" id="dash-proc-count">0</div></div>
@@ -101,8 +85,9 @@
                     <div class="panel">
                         <div class="panel-title">📬 Registros Capturados Automaticamente via Inbound Email</div>
                         
+                        <!-- FILTRO E BUSCA REATIVA SÊNIOR -->
                         <div class="search-container">
-                            <input type="text" id="cortex-search-bar" class="search-input" onkeyup="executarFiltroEmTempoReal()" placeholder="🔍 Pesquisa rápida reativa... Busque por CNJ, Pasta, Cliente ou Ex Adverso...">
+                            <input type="text" id="cortex-search-bar" class="search-input" onkeyup="executarFiltroEmTempoReal()" placeholder="🔍 Pesquisa rápida reativa... Digite CNJ, Pasta, Nome do Cliente ou Ex Adverso...">
                         </div>
 
                         <table class="data-table" id="cortex-main-table">
@@ -114,92 +99,21 @@
                                     <th>Cliente (Inclusão Automática)</th>
                                     <th>Parte Contrária (Ex Adverso)</th>
                                     <th style="width: 130px;">Prazo Fatal (CPC)</th>
-                                    <th style="width: 120px; text-align: center;">Ações</th>
                                 </tr>
                             </thead>
                             <tbody id="table-dashboard-body">
-                                <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">Conectando à base de dados relacional...</td></tr>
+                                <tr><td colspan="6" style="text-align:center; color:var(--text-muted); padding:20px;">Conectando à base de dados relacional...</td></tr>
                             </tbody>
                         </table>
                     </div>
                 </div>
 
-                <!-- VIEW 2: AI PEÇAS -->
-                <div id="view-redacao" class="tab-content">
-                    <div class="panel">
-                        <div class="panel-title">🤖 Assistente Virtual de Redação de Peças &amp; Pesquisa Jurídica</div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Tipo de Documento Legal</label>
-                                <select id="ai-peca-tipo">
-                                    <option value="Petição Inicial">Petição Inicial (Ação de Cobrança / Logística / Transporte)</option>
-                                    <option value="Recurso de Revista">Recurso de Revista (Direito Coletivo / Escala de Horas)</option>
-                                    <option value="Contestação">Contestação Cível (Cláusulas Exclusivas / Multas)</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label>Contextualização Estratégica do Caso e Fatos</label>
-                            <textarea id="ai-peca-fatos" rows="6" placeholder="Descreva os fatos ou clique em 'Redigir Peça' na tabela geral para carregar os dados automaticamente..."></textarea>
-                        </div>
-                        <button class="btn btn-primary" onclick="dispararGeradorDePecasAI()">Otimizar e Redigir Documento</button>
-                    </div>
-                    <div class="panel" id="ai-peca-output-panel" style="display:none;">
-                        <div class="panel-title">✨ Minuta Jurídica Produzida</div>
-                        <textarea id="ai-peca-output-textarea" rows="12" style="font-family: monospace; background:#f8fafc; font-size:13px;"></textarea>
-                    </div>
-                </div>
-
-                <!-- VIEW 3: PACEF CONTRATOS -->
-                <div id="view-revisao" class="tab-content">
-                    <div class="panel">
-                        <div class="panel-title">📜 Central de Auditoria de Riscos (20 Cenários Práticos - Metodologia PACEF)</div>
-                        <div class="form-group">
-                            <label>Selecione a Tipicidade Contratual / Caso Prático</label>
-                            <select id="pacef-dropdown-select" onchange="atualizarMatrizCenarioPACEF()">
-                                <option value="abusiva">1. Revise um contrato de prestação de serviços em busca de cláusulas abusivas.</option>
-                                <option value="imovel">2. Avalie possíveis inconsistências em um acordo de compra e venda de imóvel.</option>
-                                <option value="rescisao">3. Sugira corrections em uma cláusula de rescisão contratual.</option>
-                                <option value="confid">4. Verifique a clareza de um artigo de confidencialidade em um contrato de trabalho.</option>
-                                <option value="parceria">5. Identifique riscos em um documento de parceria comercial.</option>
-                                <option value="aluguel">6. Certifique um contrato de aluguel em busca de possíveis omissões.</option>
-                                <option value="reajuste">7. Sugira melhorias em uma cláusula de reajuste de preço em contrato de fornecimento.</option>
-                                <option value="multa">8. Identifique erros em uma disposição de multa contratual.</option>
-                                <option value="exclusiv">9. Verifique a validade de uma disposição de exclusividade em contrato de representação.</option>
-                                <option value="franquia">10. Revise um acordo de franquia em busca de cláusulas abusivas.</option>
-                                <option value="garantia">11. Sugira alterações em uma cláusula de garantia em contrato de venda de produto.</option>
-                                <option value="sociedade">12. Avalie possíveis conflitos em um contrato de sociedade empresarial.</option>
-                                <option value="seguro">13. Revise um contrato de seguro em busca de omissões importantes.</option>
-                                <option value="construcao">14. Sugira correções em uma disposição de força maior em contrato de construção.</option>
-                                <option value="prazo">15. Verifique a coherence de cláusulas de prazo em um acordo de prestação de serviços.</option>
-                                <option value="autorais">16. Avalie potenciais problemas em um contrato de cessão de direitos autorais.</option>
-                                <option value="software">17. Revise um contrato de licenciamento de software em busca de inconsistências.</option>
-                                <option value="arbitragem">18. Sugira melhorias em um artigo de arbitragem em contrato de parceria.</option>
-                                <option value="emprestimo">19. Identifique possíveis problemas em um acordo de empréstimo pessoal.</option>
-                                <option value="consorcio">20. Certifique um contrato de consórcio em busca de cláusulas abusivas.</option>
-                            </select>
-                        </div>
-                        <div class="prompt-box" id="pacef-prompt-viewer-box"></div>
-                        <div class="form-group">
-                            <label>Cláusula ou Texto Integral do Instrumento Contratual</label>
-                            <textarea id="pacef-clausula-textarea" rows="4" placeholder="Cole o texto da cláusula contratual aqui..."></textarea>
-                        </div>
-                        <button class="btn btn-success" onclick="executarAuditoriaPACEFEngine()">Rodar Verificação de Compliance</button>
-                    </div>
-                    <div class="panel" id="pacef-output-panel" style="display:none;">
-                        <div class="panel-title">🔍 Mapeamento Analítico de Riscos &amp; Recomendações</div>
-                        <div id="pacef-output-render-area" style="font-size:14px; line-height:1.6; background:#fafafa; padding:16px; border-radius:6px; border:1px solid var(--border);"></div>
-                    </div>
-                </div>
-
-                <!-- VIEW 4: CONTROLADORIA -->
                 <div id="view-controladoria" class="tab-content">
                     <div class="panel">
                         <div class="panel-title">⏱️ Relatórios de Controladoria Estrita</div>
                         <div id="pg-documentos" style="background:#f8fafc; padding:12px; border-radius:6px; font-size:14px;"></div>
                     </div>
                 </div>
-
             </div>
         </main>
     </div>
@@ -212,33 +126,16 @@
             const el = document.createElement('div');
             el.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
             logger.appendChild(el);
-            logger.scrollTop = logger.scrollHeight;
         }
 
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
             document.getElementById('view-' + tabId).classList.add('active');
-            
-            const targetMenu = document.querySelector(`.menu-item[onclick*="${tabId}"]`);
-            if (targetMenu) targetMenu.classList.add('active');
-            
-            const titles = {
-                dashboard: "Painel Geral (Live)", redacao: "Redação de Peças (IA)",
-                revisao: "Auditoria Contratual PACEF", controladoria: "Controladoria Jurídica"
-            };
-            document.getElementById('view-title').innerText = titles[tabId] || "Painel";
+            event.currentTarget.classList.add('active');
         }
 
-        // NOVO FLUXO INTEGRADO: ENVIA OS DADOS DA TABELA DIRETO PARA A IA
-        function prepararRedacaoPeca(cnj, tribunal, cliente, exAdverso) {
-            switchTab('redacao');
-            const campoFatos = document.getElementById('ai-peca-fatos');
-            campoFatos.value = `Demanda oriunda do processo nº ${cnj}, em trâmite perante o ${tribunal}.\nCliente representado: ${cliente}.\nParte contrária (Ex Adverso): ${exAdverso}.\n\n[Insira aqui os desdobramentos fáticos específicos e teses de defesa de logística...]`;
-            campoFatos.focus();
-            writeLog(`[Workflow] Dados relacionais do processo ${cnj} injetados na Central de IA.`);
-        }
-
+        // MOTOR DE FILTRAGEM INDEPENDENTE NA INTERFACE
         function executarFiltroEmTempoReal() {
             const input = document.getElementById("cortex-search-bar");
             const filter = input.value.toUpperCase();
@@ -246,18 +143,23 @@
             const tr = table.getElementsByTagName("tr");
 
             for (let i = 1; i < tr.length; i++) {
-                let match = false;
-                const td = tr[i].getElementsByTagName("td");
-                for (let j = 0; j < td.length; j++) {
-                    if (td[j]) {
-                        const val = td[j].textContent || td[j].innerText;
-                        if (val.toUpperCase().indexOf(filter) > -1) { match = true; break; }
+                let matchEncontrado = false;
+                const tdElements = tr[i].getElementsByTagName("td");
+                
+                for (let j = 0; j < tdElements.length; j++) {
+                    if (tdElements[j]) {
+                        const txtValue = tdElements[j].textContent || tdElements[j].innerText;
+                        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                            matchEncontrado = true;
+                            break;
+                        }
                     }
                 }
-                tr[i].style.display = match ? "" : "none";
+                tr[i].style.display = matchEncontrado ? "" : "none";
             }
         }
 
+        // SINCRO COM COUPLING DE CLIENTE E PASTA RELACIONAL
         async function sincronizarEstadoInterface() {
             const supabaseUrl = "https://tindndqjrdcgrjuvkdsy.supabase.co/rest/v1/processos?select=*,clientes(nome)&order=processado_em.desc";
             const supabaseKey = "sb_publishable_QH3_X7MaCD6ILJnGQJcXzQ_etT3TBzS";
@@ -268,94 +170,48 @@
                     headers: { "apikey": supabaseKey, "Authorization": "Bearer " + supabaseKey, "Content-Type": "application/json" }
                 });
 
-                if (!response.ok) throw new Error("Erro HTTP");
+                if (!response.ok) throw new Error("Erro de barramento HTTP");
                 const processos = await response.json();
 
                 document.getElementById('dash-proc-count').innerText = processos.length;
                 document.getElementById('dash-prazos-count').innerText = processos.length;
+                
                 const clientesContados = [...new Set(processos.map(p => p.clientes ? p.clientes.nome : null))].filter(Boolean);
                 document.getElementById('dash-cli-count').innerText = clientesContados.length;
 
                 const tbody = document.getElementById('table-dashboard-body');
                 if (processos.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;">Aguardando intimações do Gmail...</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:20px;">Aguardando o robô processar novas intimações da caixa de entrada do Gmail...</td></tr>`;
                     return;
                 }
 
                 tbody.innerHTML = "";
                 processos.forEach(p => {
                     const nomeDoCliente = p.clientes ? p.clientes.nome : "Mapeamento Inbound";
+                    // Fallback seguro caso o registro seja antigo e não possua código gerado pelo trigger
                     const codigoPastaExibido = p.codigo_pasta || "P00100";
                     
-                    // Escapa aspas simples para os argumentos JS
-                    const clEsc = nomeDoCliente.replace(/'/g, "\\'");
-                    const trEsc = (p.tribunal || '').replace(/'/g, "\\'");
-                    const exEsc = (p.ex_adverso || '').replace(/'/g, "\\'");
-
                     tbody.innerHTML += `
                         <tr>
                             <td><span class="folder-badge">${codigoPastaExibido}</span></td>
                             <td style="font-family: monospace; font-weight: bold; color: var(--accent);">${p.cnj}</td>
                             <td><b>${p.tribunal}</b></td>
                             <td><span style="color: var(--accent-success); font-weight: 600;">${nomeDoCliente}</span></td>
-                            <td>${exEsc}</td>
+                            <td>${p.ex_adverso}</td>
                             <td style="color: var(--danger); font-weight: bold;">📅 ${p.prazo_fatal}</td>
-                            <td style="text-align:center;">
-                                <button class="btn-action" onclick="prepararRedacaoPeca('${p.cnj}', '${trEsc}', '${clEsc}', '${exEsc}')">⚙️ Redigir Peça</button>
-                            </td>
                         </tr>
                     `;
                 });
 
                 document.getElementById('pg-documentos').innerHTML = `<b>📑 Relatório Relacional:</b> Encontrados ${processos.length} processos indexados com numeração sequencial de pastas iniciada em 100.`;
-                writeLog(`[Supabase Cloud] Sincronização e botões de ação injetados.`);
+                writeLog(`[Supabase Cloud] Barramento relacional e códigos de pastas sincronizados.`);
 
             } catch (err) {
-                document.getElementById('table-dashboard-body').innerHTML = `<tr><td colspan="7" style="text-align:center; color:var(--danger); padding:20px;">Erro ao carregar dados.</td></tr>`;
+                document.getElementById('table-dashboard-body').innerHTML = `<tr><td colspan="6" style="text-align:center; color:var(--danger); padding:20px;">Falha de sincronização com o banco de dados.</td></tr>`;
             }
         }
 
-        const dicionarioPACEF = {
-            abusiva: { p: "Especialista em Direito Contratual Comercial", a: "Revise o contrato de prestação de serviços buscando cláusulas abusivas ou leoninas.", c: "Contratos de adesão corporativos", e: "Multas rescisórias exorbitantes e renúncia unilateral de direitos", f: "Lista estruturada por nível de criticidade." },
-            imovel: { p: "Advogado Especialista Imobiliário", a: "Avalie possíveis inconsistências e riscos de evicção em acordo de compra e venda.", c: "Transações imobiliárias urbanas de grande porte", e: "Ausência de condicionantes de certidões", f: "Relatório de riscos estruturado." },
-            rescisao: { p: "Consultor Jurídico Sênior", a: "Sugira correções estruturais em uma cláusula de rescisão contratual.", c: "Contratos plurianuais", e: "Prazos desproporcionais de aviso prévio", f: "Minuta de cláusula retificada." }
-        };
-
-        function atualizarMatrizCenarioPACEF() {
-            const key = document.getElementById('pacef-dropdown-select').value;
-            const c = dicionarioPACEF[key] || dicionarioPACEF['abusiva'];
-            document.getElementById('pacef-prompt-viewer-box').innerHTML = `
-                <b>⚙️ Engenharia de Prompt PACEF:</b><br>
-                • <b>Persona:</b> ${c.p} | • <b>Ação:</b> ${c.a}<br>
-                • <b>Exemplo Risco:</b> <u>${c.e}</u>
-            `;
-        }
-
-        function executarAuditoriaPACEFEngine() {
-            const text = document.getElementById('pacef-clausula-textarea').value;
-            if (!text.trim()) { alert('Insira a cláusula.'); return; }
-            document.getElementById('pacef-output-panel').style.display = "block";
-            const key = document.getElementById('pacef-dropdown-select').value;
-            const config = dicionarioPACEF[key] || dicionarioPACEF['abusiva'];
-            document.getElementById('pacef-output-render-area').innerHTML = `
-                <div style="border-left:4px solid var(--gold2); padding-left:12px;">
-                    <p style="color:var(--gold2); font-weight:700; margin-bottom:8px;">⚠️ Alerta de Compliance PACEF</p>
-                    <p><b>Risco Identificado:</b> Cláusula vulnerável a: <u>${config.e}</u>.</p>
-                </div>
-            `;
-        }
-
-        function dispararGeradorDePecasAI() {
-            const fatos = document.getElementById('ai-peca-fatos').value;
-            if (!fatos.trim()) { alert('Insira os fatos.'); return; }
-            document.getElementById('ai-peca-output-panel').style.display = "block";
-            document.getElementById('ai-peca-output-textarea').value = `EXCELENTÍSSIMO SENHOR DOUTOR JUIZ...\n\n[CorTex AI Engine]\nTipo: ${document.getElementById('ai-peca-tipo').value}\n\nDOS FATOS\n${fatos}\n\nDO DIREITO\nFundamentado sob as regras processuais vigentes do Novo CPC...`;
-        }
-
-        window.addEventListener('DOMContentLoaded', () => {
-            atualizarMatrizCenarioPACEF();
-            sincronizarEstadoInterface();
-        });
+        window.addEventListener('DOMContentLoaded', sincronizarEstadoInterface);
     </script>
 </body>
 </html>
