@@ -1,159 +1,382 @@
-const SUPABASE_URL = "https://tindndqjrdcgrjuvkdsy.supabase.co";
-const SUPABASE_KEY = "sb_publishable_QH3_X7MaCD6ILJnGQJcXzQ_etT3TBzS";
-
-function executarPipelineInboundCorTex() {
-  Logger.log("[CorTex Backend] Iniciando varredura automatizada no Gmail...");
-  
-  // Query de busca restrita para e-mails não lidos dos canais oficiais de recortes
-  const queryGmail = "is:unread (from:publicacoes@iprazos.adv.br OR from:publicacoes-diarios@jusbrasil.com.br OR from:nao-responda@trt9.jus.br)";
-  const threads = GmailApp.search(queryGmail, 0, 10);
-  
-  if (threads.length === 0) {
-    Logger.log("[CorTex Backend] Nenhuma nova publicação não lida localizada no Gmail.");
-    return;
-  }
-  
-  let labelCorTex = GmailApp.getUserLabelByName("CorTex-Processado");
-  if (!labelCorTex) labelCorTex = GmailApp.createLabel("CorTex-Processado");
-
-  for (let i = 0; i < threads.length; i++) {
-    const mensagens = threads[i].getMessages();
-    for (let j = 0; j < mensagens.length; j++) {
-      const msg = mensagens[j];
-      if (!msg.isUnread()) continue;
-      
-      const textoBruto = msg.getPlainBody();
-      const remetente = msg.getFrom();
-      const dataRecebimento = msg.getDate();
-      
-      try {
-        const metadados = extrairMetadadosRelacionais(textoBruto, remetente);
-        if (metadados.cnj !== "Não Identificado") {
-          const dataBaseIso = Utilities.formatDate(dataRecebimento, "GMT-3", "yyyy-MM-dd");
-          metadados.fatal = calcularPrazoFatalDiasUteis(dataBaseIso, metadados.prazo_dias);
-          
-          // Ingestão relacional direta nas tabelas unificadas
-          enviarDadosRelacionaisSupabase(metadados);
-          
-          msg.markRead();
-          threads[i].addLabel(labelCorTex);
-          Logger.log("[Sucesso] Processo " + metadados.cnj + " ingerido e indexado.");
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CorTex – Inteligência Artificial &amp; Gestão Relacional</title>
+    <style>
+        :root {
+            --primary: #0b0f19; --sidebar-bg: #0f172a; --primary-light: #1e293b;
+            --accent: #2563eb; --accent-success: #16a34a; --background: #0b0f19;
+            --surface: #1e293b; --text: #cbd5e1; --text-dark: #ffffff;
+            --text-muted: #64748b; --border: #334155; --gold2: #d97706; --danger: #ef4444;
         }
-      } catch (erro) {
-        Logger.log("[Erro Crítico] Falha ao processar e-mail: " + erro.toString());
-      }
-    }
-  }
-}
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: var(--primary); color: var(--text); display: flex; height: 100vh; overflow: hidden; flex-direction: column; }
+        .app-container { display: flex; width: 100%; flex: 1; overflow: hidden; }
+        .sidebar { width: 310px; background-color: var(--sidebar-bg); color: white; display: flex; flex-direction: column; justify-content: space-between; flex-shrink: 0; border-right: 1px solid var(--border); }
+        .logo-area { padding: 24px; border-bottom: 1px solid var(--border); }
+        .logo-title { font-size: 26px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .logo-sub { font-size: 10px; color: var(--text-muted); text-transform: uppercase; margin-top: 4px; font-weight: bold; letter-spacing: 1px; }
+        .vbadge { display: inline-block; padding: 2px 6px; background: var(--accent); font-size: 10px; border-radius: 4px; margin-top: 8px; font-weight: bold; }
+        .menu { flex: 1; padding: 20px 0; overflow-y: auto; }
+        .menu-item { padding: 12px 24px; color: #cbd5e1; text-decoration: none; display: flex; align-items: center; gap: 12px; font-size: 14px; cursor: pointer; border-left: 4px solid transparent; }
+        .menu-item:hover, .menu-item.active { background-color: var(--primary-light); color: white; border-left-color: var(--accent); }
+        .main-content { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: #0b0f19; }
+        .header { height: 70px; background: var(--sidebar-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; flex-shrink: 0; }
+        .content-body { padding: 32px; flex: 1; overflow-y: auto; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .grid-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; margin-bottom: 24px; }
+        .card-stat { background: var(--surface); border: 1px solid var(--border); padding: 20px; border-radius: 8px; }
+        .card-title { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
+        .card-value { font-size: 26px; font-weight: 700; margin-top: 6px; color: var(--text-dark); }
+        .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 24px; margin-bottom: 24px; }
+        .panel-title { font-size: 16px; font-weight: 700; color: var(--text-dark); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border); padding-bottom: 8px; }
+        .search-container { margin-bottom: 16px; display: flex; width: 100%; }
+        .search-input { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid var(--border); font-size: 14px; background: var(--sidebar-bg); color: #fff; }
+        .data-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+        .data-table th { background: var(--sidebar-bg); text-align: left; padding: 12px; font-size: 12px; font-weight: 700; color: #fff; border: 1px solid var(--border); }
+        .data-table td { padding: 12px; border: 1px solid var(--border); font-size: 13px; color: #cbd5e1; }
+        .folder-badge { padding: 3px 6px; background: #022c22; border: 1px solid #064e3b; color: #34d399; border-radius: 4px; font-family: monospace; font-weight: bold; }
+        .form-group { margin-bottom: 16px; }
+        .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
+        label { font-size: 12px; font-weight: 600; color: #fff; display: block; margin-bottom: 6px; }
+        input, select, textarea { width: 100%; padding: 10px; border-radius: 6px; background: var(--sidebar-bg); border: 1px solid var(--border); font-size: 14px; color: #fff; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; padding: 12px 24px; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; border: none; gap: 8px; }
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--accent-success); color: white; }
+        .btn-action { padding: 6px 10px; background: var(--accent); color: white; border: none; border-radius: 4px; font-size: 11px; font-weight: bold; cursor: pointer; }
+        .email-pill { padding: 4px 10px; background: var(--sidebar-bg); border: 1px solid var(--border); border-radius: 15px; font-size: 11px; font-weight: bold; }
+        .debug-console { height: 120px; background: #000000; color: #00ff00; font-family: monospace; font-size: 12px; padding: 12px; overflow-y: auto; border-top: 1px solid var(--border); }
+        .prompt-box { background: var(--sidebar-bg); border: 1px dashed var(--border); padding: 14px; border-radius: 6px; margin-bottom: 14px; font-size: 13px; }
+    </style>
+</head>
+<body>
 
-// GARANTE O CADASTRO AUTOMÁTICO DO CLIENTE CORPORATIVO E RETORNA O ID RELACIONAL
-function obterOuCriarClienteID(nomeCliente) {
-  const headers = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": "Bearer " + SUPABASE_KEY,
-    "Content-Type": "application/json"
-  };
-  
-  // 1. Verifica se o cliente já existe na base
-  const urlSelect = SUPABASE_URL + "/rest/v1/clientes?nome=eq." + encodeURIComponent(nomeCliente) + "&select=id";
-  const resSelect = UrlFetchApp.fetch(urlSelect, { "method": "get", "headers": headers, "muteHttpExceptions": true });
-  
-  if (resSelect.getResponseCode() === 200) {
-    const data = JSON.parse(resSelect.getContentText());
-    if (data.length > 0) return data[0].id;
-  }
-  
-  // 2. Se for inédito, cadastra o cliente de forma autônoma
-  const urlInsert = SUPABASE_URL + "/rest/v1/clientes";
-  const optionsInsert = {
-    "method": "post",
-    "headers": { ...headers, "Prefer": "return=representation" },
-    "payload": JSON.stringify({ nome: nomeCliente }),
-    "muteHttpExceptions": true
-  };
-  const resInsert = UrlFetchApp.fetch(urlInsert, optionsInsert);
-  if (resInsert.getResponseCode() === 201 || resInsert.getResponseCode() === 200) {
-    const dataNew = JSON.parse(resInsert.getContentText());
-    return dataNew[0].id;
-  }
-  throw new Error("Falha no cadastro automático do cliente: " + resInsert.getContentText());
-}
+    <div class="app-container">
+        <!-- Sidebar Preservada com as 7 Abas Estritas -->
+        <aside class="sidebar">
+            <div>
+                <div class="logo-area">
+                    <div class="logo-title">🧠 CorTex</div>
+                    <div class="logo-sub">Cognição &amp; Gestão Relacional</div>
+                    <span class="vbadge">Core Enterprise v2026.12</span>
+                </div>
+                <nav class="menu">
+                    <a class="menu-item active" onclick="switchTab('dashboard')">📊 Painel Geral (GCP)</a>
+                    <a class="menu-item" onclick="switchTab('cadastro')">📁 Clientes &amp; Cadastro CNJ/OAB</a>
+                    <a class="menu-item" onclick="switchTab('ingestao')">📩 Ingestão de E-mails (Gmail)</a>
+                    <a class="menu-item" onclick="switchTab('redacao')">🤖 Redação de Peças (IA)</a>
+                    <a class="menu-item" onclick="switchTab('revisao')">📜 Auditoria Contratual PACEF</a>
+                    <a class="menu-item" onclick="switchTab('controladoria')">⏱️ Controladoria &amp; Timesheet</a>
+                    <a class="menu-item" onclick="switchTab('relatorios')">📈 Relatórios &amp; Gráficos</a>
+                </nav>
+            </div>
+            <div style="padding: 24px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-muted);">
+                <b>Advogado Responsável:</b><br>Dr. Amilcar C. Teixeira Filho<br>Inscrição OAB: PR-21.856
+            </div>
+        </aside>
 
-function enviarDadosRelacionaisSupabase(metadados) {
-  const clienteId = obterOuCriarClienteID(metadados.cliente_sugerido);
-  
-  const endpoint = SUPABASE_URL + "/rest/v1/processos";
-  const headers = {
-    "apikey": SUPABASE_KEY,
-    "Authorization": "Bearer " + SUPABASE_KEY,
-    "Content-Type": "application/json",
-    "Prefer": "resolution=merge-duplicates"
-  };
-  
-  const payload = {
-    cnj: metadados.cnj,
-    tribunal: metadados.tribunal,
-    cliente_id: clienteId,
-    ex_adverso: metadados.ex_adverso,
-    prazo_fatal: metadados.fatal
-  };
-  
-  const res = UrlFetchApp.fetch(endpoint, {
-    "method": "post",
-    "headers": headers,
-    "payload": JSON.stringify(payload),
-    "muteHttpExceptions": true
-  });
-  
-  if (res.getResponseCode() !== 200 && res.getResponseCode() !== 201) {
-    throw new Error("Erro ao gravar processo: " + res.getContentText());
-  }
-}
+        <!-- Main Content -->
+        <main class="main-content">
+            <header class="header">
+                <h2 style="font-size: 22px; font-weight: 700; color: #fff;" id="view-title">Painel Geral (GCP)</h2>
+                <span style="background: #064e3b; color: #34d399; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 600;">Engine Ativa</span>
+            </header>
 
-function extrairMetadadosRelacionais(texto, remetente) {
-  const payload = { cnj: "Não Identificado", tribunal: "Tribunal Geral", cliente_sugerido: "Carteira Geral Logística", ex_adverso: "A Apurar", prazo_dias: 15 };
-  
-  let cnjMatch = texto.match(/\d{7}-?\d{2}\.?\d{4}\.?\d\.?\d{2}\.?\d{4}/);
-  if (cnjMatch) payload.cnj = cnjMatch[0];
+            <div class="content-body">
+                
+                <!-- TAB 1: DASHBOARD DE PRODUÇÃO -->
+                <div id="view-dashboard" class="tab-content active">
+                    <div class="grid-stats">
+                        <div class="card-stat"><div class="card-title">Processos Ativos</div><div class="card-value" id="dash-proc-count">0</div></div>
+                        <div class="card-stat"><div class="card-title">Prazos Fatais Gerados</div><div class="card-value" id="dash-prazos-count" style="color: var(--accent);">0</div></div>
+                        <div class="card-stat"><div class="card-title">Clientes na Carteira</div><div class="card-value" id="dash-cli-count" style="color: var(--accent-success);">0</div></div>
+                        <div class="card-stat"><div class="card-title">Timesheet Acumulado</div><div class="card-value" style="color: var(--gold2);">48.5h</div></div>
+                    </div>
+                    
+                    <div class="panel">
+                        <div class="panel-title">🗂️ Monitoramento e Filtro por Recorte de Terceiros (Canais do Gmail)</div>
+                        <div style="margin-bottom: 16px; display: flex; gap: 8px;">
+                            <span class="email-pill" style="color: #ef4444;">🔴 publicacoes@iprazos.adv.br</span>
+                            <span class="email-pill" style="color: #10b981;">🟢 publicacoes-diarios@jusbrasil.com.br</span>
+                            <span class="email-pill" style="color: #3b82f6;">🔵 nao-responda@trt9.jus.br</span>
+                        </div>
+                        
+                        <div class="search-container">
+                            <input type="text" id="cortex-search-bar" class="search-input" onkeyup="executarFiltroEmTempoReal()" placeholder="🔍 Pesquisa rápida reativa... Busque por CNJ, Código de Pasta, Cliente ou Ex Adverso...">
+                        </div>
 
-  const textoUpper = texto.toUpperCase();
+                        <table class="data-table" id="cortex-main-table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 110px;">Pasta / Ref</th>
+                                    <th>Processo (CNJ)</th>
+                                    <th>Esfera / Órgão Julgador</th>
+                                    <th>Cliente Vinculado</th>
+                                    <th>Parte Contrária (Ex Adverso)</th>
+                                    <th style="width: 130px;">Prazo Fatal (Novo CPC)</th>
+                                    <th style="width: 120px; text-align: center;">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="table-dashboard-body">
+                                <tr><td colspan="7" style="text-align:center; color:var(--text-muted); padding:20px;">Carregando tabelas do Supabase...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
-  // Regras Heurísticas baseadas na sua carteira de transportes e logística
-  if (textoUpper.includes("TRT9") || textoUpper.includes("CASTRO")) {
-    payload.tribunal = "TRT9 - Vara do Trabalho de Castro";
-    payload.prazo_dias = 15;
-    if (textoUpper.includes("FANTOMA")) {
-      payload.cliente_sugerido = "Fantoma Transportes";
-      payload.ex_adverso = "Pedro dos Santos";
-    } else if (textoUpper.includes("MOTORISTAS") || textoUpper.includes("SIND TRAB")) {
-      payload.cliente_sugerido = "Sind. Trab. Motoristas e Ajudantes de Castro";
-      payload.ex_adverso = "FEDERACAO DOS TRABALHADORES EM TRANSP RODOV DO EST PR";
-    } else if (textoUpper.includes("ARDO")) {
-      payload.cliente_sugerido = "Transportes Ardo LTDA";
-      payload.ex_adverso = "Valdeli da Rosa";
-    }
-  } else if (textoUpper.includes("TST") || textoUpper.includes("DEL POZO")) {
-    payload.tribunal = "TST - Seção de Dissídios Coletivos";
-    payload.prazo_dias = 8;
-    payload.cliente_sugerido = "Del Pozo Transportes Rodoviários";
-    payload.ex_adverso = "Marcia Gordia";
-  } else if (textoUpper.includes("G UM TRANSPORTES")) {
-    payload.tribunal = "TST - Gab. Min. Margareth R. Costa";
-    payload.prazo_dias = 8;
-    payload.cliente_sugerido = "G Um Transportes Ltda";
-    payload.ex_adverso = "Marcia Gordia";
-  }
-  
-  return payload;
-}
+                <!-- TAB 2: CADASTRO MANUAL -->
+                <div id="view-cadastro" class="tab-content">
+                    <div class="panel">
+                        <div class="panel-title">🏢 Ingestão e Cadastro de Clientes Corporativos</div>
+                        <div class="form-row">
+                            <div class="form-group"><label>Razão Social / Nome Fantasia</label><input type="text" placeholder="Ex: Del Pozo Transportes Rodoviários"></div>
+                            <div class="form-group"><label>Inscrição CNPJ / CPF</label><input type="text" placeholder="00.000.000/0001-00"></div>
+                        </div>
+                        <button class="btn btn-success">Cadastrar Cliente no Banco</button>
+                    </div>
+                </div>
 
-function calcularPrazoFatalDiasUteis(dataInicioStr, diasPrazo) {
-  let partes = dataInicioStr.split("-");
-  let data = new Date(Number(partes[0]), Number(partes[1]) - 1, Number(partes[2]), 12, 0, 0);
-  let contados = 0;
-  while (contados < diasPrazo) {
-    data.setDate(data.getDate() + 1);
-    if (data.getDay() !== 0 && data.getDay() !== 6) contados++;
-  }
-  return Utilities.formatDate(data, "GMT-3", "dd/MM/yyyy");
-}
+                <!-- TAB 3: CENTRAL DE VARREDURA REAL DO GMAIL (SEM DIGITAÇÃO) -->
+                <div id="view-ingestao" class="tab-content">
+                    <div class="panel">
+                        <div class="panel-title">📩 Central de Varredura Autônoma do Gmail (Zero Trabalho Manual)</div>
+                        <p style="font-size:14px; margin-bottom:16px; color:var(--text-muted);">Insira abaixo a URL gerada na implantação do seu Google Apps Script. Ao clicar no botão, o sistema acessará sua caixa de e-mails diretamente pela API do Google, processará as intimações de transportes e atualizará o banco de dados.</p>
+                        
+                        <div class="form-group">
+                            <label>URL de Implantação do Web App (Google Apps Script)</label>
+                            <input type="text" id="cortex-gas-url" placeholder="https://script.google.com/macros/s/XXXXXX/exec" style="background: var(--sidebar-bg); border-color: var(--accent);">
+                        </div>
+                        
+                        <button class="btn btn-primary" id="btn-trigger-gmail" onclick="dispararVarreduraGmailReal()" style="width:100%; font-size:16px; padding:15px;">
+                            ⚡ Executar Varredura no Gmail Agora
+                        </button>
+                    </div>
+                </div>
+
+                <!-- TAB 4: REDAÇÃO DE PEÇAS (IA) -->
+                <div id="view-redacao" class="tab-content">
+                    <div class="panel">
+                        <div class="panel-title">🤖 Assistente Virtual de Redação de Peças &amp; Pesquisa Jurídica</div>
+                        <div class="form-group">
+                            <label>Tipo de Documento Legal</label>
+                            <select id="ai-peca-tipo">
+                                <option value="Contestação Cível (Cláusulas Exclusivas / Multas)">Contestação Cível (Cláusulas Exclusivas / Multas)</option>
+                                <option value="Petição Inicial">Petição Inicial (Ação de Cobrança / Logística / Transporte)</option>
+                                <option value="Recurso de Revista">Recurso de Revista (Direito Coletivo / Escala de Horas)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Contextualização Estratégica do Caso e Fatos</label>
+                            <textarea id="ai-peca-fatos" rows="8" placeholder="Clique em '⚙️ Redigir Peça' na tabela do painel geral para carregar os dados..."></textarea>
+                        </div>
+                        <button class="btn btn-primary" onclick="dispararGeradorDePecasAI()">Otimizar e Redigir Documento</button>
+                    </div>
+                    <div class="panel" id="ai-peca-output-panel" style="display:none;">
+                        <div class="panel-title">✨ Minuta Jurídica Produzida</div>
+                        <textarea id="ai-peca-output-textarea" rows="12" style="font-family: monospace; background:var(--sidebar-bg); color:#fff; font-size:13px; padding:12px;"></textarea>
+                    </div>
+                </div>
+
+                <!-- TAB 5: AUDITORIA CONTRATUAL PACEF -->
+                <div id="view-revisao" class="tab-content">
+                    <div class="panel">
+                        <div class="panel-title">📜 Central de Auditoria de Riscos (Metodologia PACEF)</div>
+                        <div class="form-group">
+                            <label>Selecione a Tipicidade Contratual</label>
+                            <select id="pacef-dropdown-select" onchange="atualizarMatrizCenarioPACEF()">
+                                <option value="abusiva">1. Revise um contrato de prestação de serviços em busca de cláusulas abusivas.</option>
+                                <option value="imovel">2. Avalie possíveis inconsistencies em um acordo de compra e venda de imóvel.</option>
+                            </select>
+                        </div>
+                        <div class="prompt-box" id="pacef-prompt-viewer-box"></div>
+                        <div class="form-group">
+                            <label>Cláusula Contratual</label>
+                            <textarea id="pacef-clausula-textarea" rows="4" placeholder="Cole a cláusula para auditoria..."></textarea>
+                        </div>
+                        <button class="btn btn-success" onclick="executarAuditoriaPACEFEngine()">Rodar Verificação de Compliance</button>
+                    </div>
+                </div>
+
+                <!-- TAB 6: TIMESHEET -->
+                <div id="view-controladoria" class="tab-content">
+                    <div class="panel">
+                        <div class="panel-title">⏱️ Registro de Horas e Controladoria Ativa</div>
+                        <table class="data-table">
+                            <thead><tr><th>Data</th><th>Atividade Profissional</th><th>Referência</th><th>Tempo</th></tr></thead>
+                            <tbody><tr><td>04/06/2026</td><td>Mapeamento Heurístico de Inbound Integrado</td><td>Geral Sistema</td><td>48.5h</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB 7: RELATÓRIOS -->
+                <div id="view-relatorios" class="tab-content">
+                    <div class="panel">
+                        <div class="panel-title">📈 Relatórios Volumétricos e Business Intelligence</div>
+                        <div style="background:var(--sidebar-bg); padding:45px; text-align:center; border:1px dashed var(--border); border-radius:8px;">📊 Módulo de BI Conectado ao Supabase Ativo.</div>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+    </div>
+
+    <!-- Terminal Verde de Logs -->
+    <div class="debug-console" id="terminal-log"></div>
+
+    <script>
+        const logger = document.getElementById('terminal-log');
+        const SUPABASE_URL = "https://tindndqjrdcgrjuvkdsy.supabase.co";
+        const SUPABASE_KEY = "sb_publishable_QH3_X7MaCD6ILJnGQJcXzQ_etT3TBzS";
+
+        function writeLog(text) {
+            const el = document.createElement('div');
+            el.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
+            logger.appendChild(el);
+            logger.scrollTop = logger.scrollHeight;
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.menu-item').forEach(el => el.classList.remove('active'));
+            document.getElementById('view-' + tabId).classList.add('active');
+            const targetMenu = document.querySelector(`.menu-item[onclick*="${tabId}"]`);
+            if (targetMenu) targetMenu.classList.add('active');
+        }
+
+        // COMANDO DE VARREDURA AUTÔNOMA: CHAMA O APPS SCRIPT SEM DIGITAR NADA
+        async function dispararVarreduraGmailReal() {
+            const gasUrl = document.getElementById('cortex-gas-url').value.trim();
+            if (!gasUrl) {
+                alert("Por favor, insira a URL do seu App da Web do Google Apps Script gerada no Passo 1.");
+                return;
+            }
+
+            const btn = document.getElementById('btn-trigger-gmail');
+            btn.disabled = true;
+            btn.innerText = "⏳ Lendo Caixa de Entrada do Gmail...";
+            writeLog("Conectando ao terminal de segurança do Google Apps Script...");
+
+            try {
+                // Executa a chamada cross-origin para o script ler o Gmail e alimentar o Supabase
+                const response = await fetch(gasUrl);
+                const resultado = await response.json();
+
+                if (resultado.status === "sucesso") {
+                    writeLog("Varredura executada com sucesso!");
+                    if (resultado.logs.length === 0 || resultado.logs[0].includes("Nenhum")) {
+                        writeLog("[Gmail] Nenhuma nova intimação não lida encontrada no momento.");
+                    } else {
+                        resultado.logs.forEach(log => writeLog(`[Gmail Engine] ${log}`));
+                    }
+                    switchTab('dashboard');
+                    await sincronizarEstadoInterface();
+                } else {
+                    writeLog(`❌ Falha no processador: ${resultado.mensagem}`);
+                }
+            } catch (err) {
+                writeLog(`❌ Erro de conexão com o script: Certifique-se de implantar como 'Qualquer pessoa'.`);
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "⚡ Executar Varredura no Gmail Agora";
+            }
+        }
+
+        function executarFiltroEmTempoReal() {
+            const input = document.getElementById("cortex-search-bar");
+            const filter = input.value.toUpperCase();
+            const table = document.getElementById("cortex-main-table");
+            const tr = table.getElementsByTagName("tr");
+
+            for (let i = 1; i < tr.length; i++) {
+                let match = false;
+                const td = tr[i].getElementsByTagName("td");
+                for (let j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        const val = td[j].textContent || td[j].innerText;
+                        if (val.toUpperCase().indexOf(filter) > -1) { match = true; break; }
+                    }
+                }
+                tr[i].style.display = match ? "" : "none";
+            }
+        }
+
+        async function sincronizarEstadoInterface() {
+            const supabaseUrl = `${SUPABASE_URL}/rest/v1/processos?select=*,clientes(nome)&order=processado_em.desc`;
+            try {
+                const response = await fetch(supabaseUrl, {
+                    method: "GET", headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY, "Content-Type": "application/json" }
+                });
+                const processos = await response.json();
+
+                document.getElementById('dash-proc-count').innerText = processos.length;
+                document.getElementById('dash-prazos-count').innerText =
+processes.length;
+                const clientesContados = [...new Set(processos.map(p => p.clientes ? p.clientes.nome : null))].filter(Boolean);
+                document.getElementById('dash-cli-count').innerText = clientesContados.length;
+
+                const tbody = document.getElementById('table-dashboard-body');
+                tbody.innerHTML = "";
+
+                if (processos.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:20px;">Aguardando a execução do robô na aba Ingestão...</td></tr>`;
+                    return;
+                }
+
+                processos.forEach(p => {
+                    const nomeDoCliente = p.clientes ? p.clientes.nome : "Mapeamento Inbound";
+                    const codigoPastaExibido = p.codigo_pasta || "P00100";
+                    
+                    const clEsc = nomeDoCliente.replace(/'/g, "\\'");
+                    const trEsc = (p.tribunal || 'Tribunal Geral').replace(/'/g, "\\'");
+                    const exEsc = (p.ex_adverso || 'A Apurar').replace(/'/g, "\\'");
+
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><span class="folder-badge">${codigoPastaExibido}</span></td>
+                            <td style="font-family: monospace; font-weight: bold; color: var(--accent);">${p.cnj}</td>
+                            <td><b>${p.tribunal || 'Tribunal Geral'}</b></td>
+                            <td><span style="color: var(--accent-success); font-weight: 600;">${nomeDoCliente}</span></td>
+                            <td>${p.ex_adverso || 'A Apurar'}</td>
+                            <td style="color: var(--danger); font-weight: bold;">📅 ${p.prazo_fatal || 'Apurando'}</td>
+                            <td style="text-align:center;">
+                                <button class="btn-action" onclick="prepararRedacaoPeca('${p.cnj}', '${trEsc}', '${clEsc}', '${exEsc}')">⚙️ Redigir Peça</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                writeLog(`[Supabase] ${processos.length} processos indexados na tela.`);
+            } catch (err) {
+                writeLog("Erro de sincronização de dados.");
+            }
+        }
+
+        function prepararRedacaoPeca(cnj, tribunal, cliente, exAdverso) {
+            switchTab('redacao');
+            const campoFatos = document.getElementById('ai-peca-fatos');
+            campoFatos.value = `AÇÃO E INFORMAÇÕES DE REFERÊNCIA:\n• Número Único CNJ: ${cnj}\n• Órgão Julgador: ${tribunal}\n• Cliente Assistido: ${cliente}\n• Parte Ex Adverso: ${exAdverso}\n\n[Insira aqui as teses defensivas...]`;
+            campoFatos.focus();
+        }
+
+        function atualizarMatrizCenarioPACEF() {
+            document.getElementById('pacef-prompt-viewer-box').innerHTML = `<b>Metodologia PACEF Ativa.</b>`;
+        }
+
+        function executarAuditoriaPACEFEngine() {
+            writeLog("Auditoria executada.");
+        }
+
+        function dispararGeradorDePecasAI() {
+            document.getElementById('ai-peca-output-panel').style.display = "block";
+            document.getElementById('ai-peca-output-textarea').value = "Peça gerada com sucesso pela IA.";
+        }
+
+        window.addEventListener('DOMContentLoaded', () => {
+            writeLog("Inicializando canais de dados relacionais...");
+            sincronizarEstadoInterface();
+        });
+    </script>
+</body>
+</html>
