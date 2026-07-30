@@ -231,7 +231,7 @@ var DB = {
 // EMAIL objeto
 // ============================================================
 var EMAIL = {
-  cfg: { clientId:'245855517843-4fstpfsna79doa6krmvg3hu5p3o7jtdm.apps.googleusercontent.com', secret:'', calId:'primary', prefix:'[LEX] ', prazo:15, dedup:'cnj', autoAgenda:true, autoTarefa:true, resp:1, intervalo:15 },
+  cfg: { clientId:'904302581754-4mkkf03s97j54ijh1f53f7srsquo20h2.apps.googleusercontent.com', secret:'', calId:'primary', prefix:'[LEX] ', prazo:15, dedup:'cnj', autoAgenda:true, autoTarefa:true, resp:1, intervalo:15 },
   ok: false, token: null, prazos: [], cnjs_impacta: {}, log_entries: [],
   stats: {total:0, procs:0, prazos:0, dups:0}, _inbox: [], _extracao: null
 };
@@ -586,7 +586,33 @@ function testarGemini(){var key=(document.getElementById('geminiKey')||{value:''
 function eLog(msg,tipo){var cores={info:'var(--text3)',ok:'var(--green)',warn:'var(--orange)',err:'var(--red)',teal:'var(--teal)'};var t=new Date().toLocaleTimeString('pt-BR');EMAIL.log_entries.unshift({t:t,msg:msg,tipo:tipo||'info'});var el=document.getElementById('emailLog');if(!el)return;el.innerHTML=EMAIL.log_entries.slice(0,60).map(function(l){return '<div style="color:'+(cores[l.tipo]||cores.info)+'"><span style="color:var(--text3)">['+l.t+']</span> '+l.msg+'</div>';}).join('');}
 function limparLog(){EMAIL.log_entries=[];var el=document.getElementById('emailLog');if(el)el.innerHTML='Log limpo.';}
 function eKPI(){var ids=['kET','kEP','kEPz','kEDup'];var vals=[EMAIL.stats.total,EMAIL.stats.procs,EMAIL.stats.prazos,EMAIL.stats.dups];ids.forEach(function(id,i){var el=document.getElementById(id);if(el)el.textContent=vals[i];});var ec=document.getElementById('prazosAutoCnt');if(ec)ec.textContent=EMAIL.prazos.length;}
-function conectarGmail(){var cid=EMAIL.cfg.clientId||'';var redirect=window.location.origin+window.location.pathname;var scope='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive';var url='https://accounts.google.com/o/oauth2/v2/auth?client_id='+encodeURIComponent(cid)+'&redirect_uri='+encodeURIComponent(redirect)+'&response_type=token&scope='+encodeURIComponent(scope)+'&prompt=consent';window.location.href=url;}
+function conectarGmail(){var cid=EMAIL.cfg.clientId||'';var redirect=window.location.origin+window.location.pathname;var scope='https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/calendar https://www.googleapis.com/auth/drive';var url='https://accounts.google.com/o/oauth2/v2/auth?client_id='+encodeURIComponent(cid)+'&redirect_uri='+encodeURIComponent(redirect)+'&response_type=token&scope='+encodeURIComponent(scope)+'&prompt=consent';window.open(url,'_self');}
+
+function _handleOAuthCallback(){
+  var hash=window.location.hash;
+  if(!hash||hash.indexOf('access_token')<0)return;
+  var m=hash.match(/access_token=([^&]+)/);
+  var e=hash.match(/expires_in=(\d+)/);
+  if(m){
+    var tok=m[1];
+    var exp=e?Date.now()+(parseInt(e[1])-60)*1000:0;
+    localStorage.setItem('lex_gmail_token',tok);
+    localStorage.setItem('lex_gmail_auth',tok);
+    if(exp)localStorage.setItem('lex_token_exp',String(exp));
+    EMAIL.token=tok;EMAIL.ok=true;
+    // Limpa hash da URL
+    history.replaceState(null,null,window.location.pathname);
+    if(typeof toast==='function')toast('✅ Gmail conectado com sucesso!','teal');
+    // Atualiza status
+    var st=document.getElementById('oauthSt');
+    if(st){st.textContent='✅ Conectado';st.style.color='var(--green)';}
+    console.log('[Gmail] Token salvo, expira em '+(exp?new Date(exp).toLocaleTimeString():'?'));
+  }
+}
+// Verifica callback ao carregar
+if(window.location.hash&&window.location.hash.indexOf('access_token')>=0){
+  setTimeout(_handleOAuthCallback,500);
+}
 function iniciarOAuth(){conectarGmail();}
 function salvarCredGmail(){var cid=(document.getElementById('cfgClientId')||{value:''}).value.trim();if(!cid){alert('Cole o Client ID do Google Cloud Console no campo CLIENT ID');return;}EMAIL.cfg.clientId=cid;DB.save('lex_gmail_cfg',EMAIL.cfg);toast('✅ Client ID salvo! Clique em Autorizar Gmail.','green');}
 function salvarCfgCompleta(){EMAIL.cfg.clientId=(document.getElementById('cfgClientId')||{value:''}).value||EMAIL.cfg.clientId;EMAIL.cfg.resp=parseInt((document.getElementById('cfgResp')||{value:'1'}).value)||1;DB.save('lex_gmail_cfg',EMAIL.cfg);closeModal('mEmailConfig');toast('Configurações salvas!','green');eLog('Configurações atualizadas','ok');}
