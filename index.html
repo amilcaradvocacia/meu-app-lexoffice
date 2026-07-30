@@ -761,4 +761,32 @@ window.addEventListener('load', function(){
   }, 1000);
 });
 </script>
+
+<script>
+// Limpa dados demo do localStorage (roda 1x)
+(function(){
+  var KEY = 'lex_demo_cleaned_v2';
+  if (localStorage.getItem(KEY)) return;
+  localStorage.setItem(KEY, '1');
+  // Remove tarefas sem CNJ real (são demo)
+  try {
+    var tars = JSON.parse(localStorage.getItem('lexat_tarefas')||'[]');
+    var real = tars.filter(function(t){ return t.cnj && !/0012345|0009871|0023441|0034567/.test(t.cnj); });
+    if (real.length < tars.length) {
+      localStorage.setItem('lexat_tarefas', JSON.stringify(real));
+      console.log('[Clean] Removidas '+(tars.length-real.length)+' tarefas demo');
+    }
+  } catch(e){}
+  // Remove prazos demo
+  try {
+    var prs = JSON.parse(localStorage.getItem('lexat_prazos')||'[]');
+    var realP = prs.filter(function(p){ return p.cnj && !/0012345|0009871|0023441/.test(p.cnj); });
+    if (realP.length < prs.length) {
+      localStorage.setItem('lexat_prazos', JSON.stringify(realP));
+      console.log('[Clean] Removidos '+(prs.length-realP.length)+' prazos demo');
+    }
+  } catch(e){}
+  console.log('[LexAT] Dados demo limpos');
+})();
+</script>
 </body></html>
