@@ -4,7 +4,7 @@
  * Executa 1x para popular o localStorage
  */
 (function() {
-  var KEY = 'lex_seed_real_v1';
+  var KEY = 'lex_seed_real_v3';
   if (localStorage.getItem(KEY)) { console.log('[Seed] já executado'); return; }
 
   var DADOS = {
@@ -31,13 +31,27 @@
   localStorage.setItem(KEY, '1');
   console.log('[Seed] ✅ Dados reais inseridos no LexDB');
 
-  // Atualiza UI após 1s
+  // Atualiza UI após 1.5s
   setTimeout(function() {
-    if (typeof window.renderDashboardFull === 'function') window.renderDashboardFull();
-    if (typeof window.lexRenderPrazosAba === 'function' &&
-        document.getElementById('pg-prazos') &&
-        document.getElementById('pg-prazos').classList.contains('active')) {
-      window.lexRenderPrazosAba('pendente');
+    // Atualiza badges da sidebar
+    var pubs = [];
+    try { pubs = JSON.parse(localStorage.getItem('lexat_publicacoes')||'[]'); } catch(e){}
+    var prazos = [];
+    try { prazos = JSON.parse(localStorage.getItem('lexat_prazos')||'[]'); } catch(e){}
+    var tars = [];
+    try { tars = JSON.parse(localStorage.getItem('lexat_tarefas')||'[]'); } catch(e){}
+
+    var sbPub = document.querySelector('.nitem[onclick*="emails"] .nbadge');
+    if (sbPub) sbPub.textContent = pubs.length;
+    var sbPr = document.querySelector('.nitem[onclick*="prazos"] .nbadge');
+    if (sbPr) sbPr.textContent = prazos.filter(function(p){return p.status==='pendente';}).length;
+    var sbTar = document.querySelector('.nitem[onclick*="tarefas"] .nbadge');
+    if (sbTar) sbTar.textContent = tars.filter(function(t){return t.status==='pendente';}).length;
+
+    // Re-renderiza dashboard
+    if (typeof window.renderDashboardFull === 'function') {
+      window.renderDashboardFull();
+      console.log('[Seed] Dashboard atualizado');
     }
-  }, 1000);
+  }, 1500);
 })();
